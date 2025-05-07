@@ -1,0 +1,39 @@
+{
+  "chunks": [
+    {
+      "filename": "chunk-1880-1900.json",
+      "startYear": 1880,
+      "endYear": 1900
+    },
+    {
+      "filename": "chunk-1901-1920.json",
+      "startYear": 1901,
+      "endYear": 1920
+    },
+    {
+      "filename": "chunk-1921-1940.json",
+      "startYear": 1921,
+      "endYear": 1940
+    },
+    {
+      "filename": "chunk-1941-1960.json",
+      "startYear": 1941,
+      "endYear": 1960
+    },
+    {
+      "filename": "chunk-1961-1980.json",
+      "startYear": 1961,
+      "endYear": 1980
+    },
+    {
+      "filename": "chunk-1981-2000.json",
+      "startYear": 1981,
+      "endYear": 2000
+    },
+    {
+      "filename": "chunk-2001-2022.json",
+      "startYear": 2001,
+      "endYear": 2022
+    }
+  ]
+}

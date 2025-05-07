@@ -5,12 +5,23 @@ import NameSearch from './components/NameSearch';
 import NameChart from './components/NameChart';
 import YearRangeSlider from './components/YearRangeSlider';
 
+interface ChunkInfo {
+  filename: string;
+  startYear: number;
+  endYear: number;
+}
+
+interface Manifest {
+  chunks: ChunkInfo[];
+}
+
 function App() {
   const [data, setData] = useState<NameData | null>(null);
   const [selectedNames, setSelectedNames] = useState<NameSelection[]>([]);
   const [yearRange, setYearRange] = useState<[number, number]>([1880, 2022]);
   const [availableYearRange, setAvailableYearRange] = useState<[number, number]>([1880, 2022]);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Load state from URL on mount
   useEffect(() => {
@@ -30,6 +41,58 @@ function App() {
     } catch (e) {
       console.error('Failed to parse state from URL:', e);
     }
+  }, []);
+
+  // Load data chunks
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true);
+        // First load the manifest
+        const manifestResponse = await fetch('./chunks/manifest.json');
+        if (!manifestResponse.ok) {
+          throw new Error(`Failed to load manifest: ${manifestResponse.status}`);
+        }
+        const manifest: Manifest = await manifestResponse.json();
+        
+        // Load all chunks in parallel
+        const chunkPromises = manifest.chunks.map(async (chunk) => {
+          const response = await fetch(`./chunks/${chunk.filename}`);
+          if (!response.ok) {
+            throw new Error(`Failed to load chunk ${chunk.filename}: ${response.status}`);
+          }
+          return response.json();
+        });
+        
+        const chunks = await Promise.all(chunkPromises);
+        
+        // Merge all chunks into one dataset
+        const mergedData: NameData = {};
+        chunks.forEach((chunk) => {
+          Object.entries(chunk).forEach(([name, genderData]) => {
+            if (!mergedData[name]) {
+              mergedData[name] = { M: {}, F: {} };
+            }
+            ['M', 'F'].forEach((gender) => {
+              if (genderData[gender]) {
+                mergedData[name][gender] = {
+                  ...mergedData[name][gender],
+                  ...genderData[gender]
+                };
+              }
+            });
+          });
+        });
+        
+        setData(mergedData);
+      } catch (error) {
+        console.error('Error loading data chunks:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    loadData();
   }, []);
 
   const handleCopyLink = async () => {
@@ -92,26 +155,12 @@ function App() {
     setYearRange(newRange);
   };
 
-  useEffect(() => {
-    const baseUrl = import.meta.env.BASE_URL || '/baby-name-charts/';
-    fetch(`${baseUrl}data.json`)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((jsonData: NameData) => {
-        setData(jsonData);
-      })
-      .catch(error => {
-        console.error('Error loading data:', error);
-        console.error('Attempted to fetch from:', `${baseUrl}data.json`);
-      });
-  }, []);
+  if (loading) {
+    return <div>Loading data chunks...</div>;
+  }
 
   if (!data) {
-    return <div>Loading...</div>;
+    return <div>Error loading data</div>;
   }
 
   return (
