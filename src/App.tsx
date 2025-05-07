@@ -48,8 +48,9 @@ function App() {
     async function loadData() {
       try {
         setLoading(true);
+        const baseUrl = import.meta.env.BASE_URL || '/baby-name-charts/';
         // First load the manifest
-        const manifestResponse = await fetch('./chunks/manifest.json');
+        const manifestResponse = await fetch(`${baseUrl}chunks/manifest.json`);
         if (!manifestResponse.ok) {
           throw new Error(`Failed to load manifest: ${manifestResponse.status}`);
         }
@@ -57,7 +58,7 @@ function App() {
         
         // Load all chunks in parallel
         const chunkPromises = manifest.chunks.map(async (chunk) => {
-          const response = await fetch(`./chunks/${chunk.filename}`);
+          const response = await fetch(`${baseUrl}chunks/${chunk.filename}`);
           if (!response.ok) {
             throw new Error(`Failed to load chunk ${chunk.filename}: ${response.status}`);
           }
