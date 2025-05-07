@@ -94,7 +94,7 @@ function App() {
   };
 
   useEffect(() => {
-    fetch('/data/data.json')
+    fetch('/data.json')
       .then(response => response.json())
       .then((jsonData: NameData) => {
         setData(jsonData);
