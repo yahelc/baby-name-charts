@@ -1,4 +1,4 @@
-import { NumberInput, Group, Text } from '@mantine/core';
+import { Group, NumberInput, Text } from '@mantine/core';
 
 interface YearRangeSliderProps {
   value: [number, number];
@@ -19,9 +19,9 @@ export default function YearRangeSlider({ value, onChange }: YearRangeSliderProp
   };
 
   return (
-    <div>
-      <Group gap="xs" align="flex-end">
-        <div>
+    <div style={{ width: '100%' }}>
+      <Group gap="xs" align="flex-end" style={{ flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 120px', minWidth: '120px' }}>
           <Text size="xs" fw={500} style={{ marginBottom: '0.25rem' }}>
             Start Year
           </Text>
@@ -35,13 +35,13 @@ export default function YearRangeSlider({ value, onChange }: YearRangeSliderProp
             hideControls
             styles={{
               input: {
-                width: '100px',
+                width: '100%',
               },
             }}
           />
         </div>
         <Text size="sm" style={{ marginBottom: '0.25rem' }}>to</Text>
-        <div>
+        <div style={{ flex: '1 1 120px', minWidth: '120px' }}>
           <Text size="xs" fw={500} style={{ marginBottom: '0.25rem' }}>
             End Year
           </Text>
@@ -55,7 +55,7 @@ export default function YearRangeSlider({ value, onChange }: YearRangeSliderProp
             hideControls
             styles={{
               input: {
-                width: '100px',
+                width: '100%',
               },
             }}
           />

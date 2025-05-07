@@ -47,20 +47,43 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
         .filter(year => year >= yearRange[0] && year <= yearRange[1])
         .sort((a, b) => a - b);
 
-      const counts = sortedYears.map(year => {
+      // Find the first year this name appears
+      const firstYear = Math.min(...sortedYears);
+
+      // Generate all years in range
+      const allYearsInRange = Array.from(
+        { length: yearRange[1] - yearRange[0] + 1 },
+        (_, i) => yearRange[0] + i
+      );
+
+      const points = allYearsInRange.map(year => {
         const yearStr = year.toString();
+        let count = 0;
         if (gender === 'All') {
-          return (data[name]?.M?.[yearStr] || 0) + (data[name]?.F?.[yearStr] || 0);
+          count = (data[name]?.M?.[yearStr] || 0) + (data[name]?.F?.[yearStr] || 0);
+        } else {
+          count = data[name]?.[gender]?.[yearStr] || 0;
         }
-        return data[name]?.[gender]?.[yearStr] || 0;
+
+        // If this year is after the first appearance but has no data, show "< 5"
+        if (year >= firstYear && count === 0) {
+          return {
+            x: year,
+            y: 0,
+            label: '< 5'
+          };
+        }
+
+        return {
+          x: year,
+          y: count,
+          label: count.toLocaleString()
+        };
       });
 
       return {
         label: `${name} (${gender})`,
-        data: sortedYears.map((year, i) => ({
-          x: year,
-          y: counts[i]
-        })),
+        data: points,
         borderColor: `hsl(${(index * 137.5 + 200) % 360}, 70%, 50%)`,
         backgroundColor: `hsla(${(index * 137.5 + 200) % 360}, 70%, 50%, 0.5)`,
         tension: 0.1,
@@ -121,12 +144,19 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
     plugins: {
       legend: {
         position: 'top',
+        labels: {
+          boxWidth: 12,
+          padding: 10,
+          font: {
+            size: 12
+          }
+        }
       },
       title: {
         display: true,
         text: 'Baby Name Trends Over Time',
         font: {
-          size: 24,
+          size: 20,
         },
       },
       tooltip: {
@@ -138,8 +168,8 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
           },
           label: (context) => {
             const label = context.dataset.label || '';
-            const value = context.parsed.y;
-            return `${label}: ${value.toLocaleString()}`;
+            const point = context.dataset.data[context.dataIndex] as { label?: string };
+            return `${label}: ${point.label || context.parsed.y.toLocaleString()}`;
           },
         },
       },
@@ -149,9 +179,10 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
   return (
     <div style={{ 
       width: '100%', 
-      height: '800px',
+      height: '600px',
       position: 'relative',
-      minWidth: '800px'
+      minWidth: '300px',
+      maxWidth: '100%'
     }}>
       <Line data={chartData} options={options} />
     </div>

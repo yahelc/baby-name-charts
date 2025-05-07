@@ -165,28 +165,42 @@ function App() {
   }
 
   return (
-    <MantineProvider>
+    <MantineProvider
+      theme={{
+        defaultRadius: 'sm',
+        primaryColor: 'blue',
+        components: {
+          Button: {
+            defaultProps: {
+              variant: 'light',
+            },
+          },
+        },
+      }}
+    >
       <div style={{ 
         padding: '20px', 
         width: '100%',
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center'
+        alignItems: 'center',
+        backgroundColor: 'white'
       }}>
         <div style={{ 
-          width: '90%',
-          maxWidth: '1800px',
-          minWidth: '1000px'
+          width: '100%',
+          maxWidth: '1200px',
+          padding: '0 10px'
         }}>
-          <Group justify="space-between" style={{ marginBottom: '1rem' }}>
-            <h1 style={{ margin: 0 }}>Baby Name Trends</h1>
-            <Group gap="xs">
+          <Group justify="space-between" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
+            <h1 style={{ margin: 0, fontSize: 'clamp(1.5rem, 4vw, 2rem)' }}>Baby Name Trends</h1>
+            <Group gap="xs" style={{ flexWrap: 'wrap' }}>
               <Button 
                 variant="outline" 
                 color={copySuccess ? "green" : "gray"}
                 onClick={handleCopyLink}
                 disabled={selectedNames.length === 0}
+                size="sm"
               >
                 {copySuccess ? "Copied!" : "Copy Link"}
               </Button>
@@ -195,6 +209,7 @@ function App() {
                 color="gray" 
                 onClick={handleClear}
                 disabled={selectedNames.length === 0}
+                size="sm"
               >
                 Clear Selection
               </Button>
@@ -220,9 +235,8 @@ function App() {
           </div>
           <div style={{ 
             width: '100%',
-            height: '800px',
-            marginBottom: '2rem',
-            minWidth: '800px'
+            height: '600px',
+            marginBottom: '2rem'
           }}>
             <NameChart
               data={data}

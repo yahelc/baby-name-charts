@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Combobox, InputBase, useCombobox, Group, Chip } from '@mantine/core';
+import { Combobox, InputBase, useCombobox, Group, Button } from '@mantine/core';
 import type { NameData, NameSelection } from '../types';
 
 interface NameSearchProps {
@@ -93,27 +93,36 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
         </Combobox.Dropdown>
       </Combobox>
 
-      <Group>
+      <Group gap="xs" style={{ flexWrap: 'wrap' }}>
         {selectedNames.map(({ name, gender }) => (
-          <Chip
+          <div
             key={`${name}-${gender}`}
-            variant="filled"
-            onClick={() => handleRemove(name, gender)}
-            styles={{
-              root: {
-                backgroundColor: 'transparent',
-                border: '1px solid #ccc',
-                '&:hover': {
-                  backgroundColor: '#f0f0f0',
-                },
-              },
-              label: {
-                padding: '4px 8px',
-              },
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: '#f8f9fa',
+              border: '1px solid #dee2e6',
+              borderRadius: '4px',
+              padding: '4px 8px',
+              gap: '4px'
             }}
           >
-            {name} ({gender})
-          </Chip>
+            <Button
+              variant="subtle"
+              color="gray"
+              size="xs"
+              onClick={() => handleRemove(name, gender)}
+              style={{
+                padding: '0 4px',
+                minWidth: 'unset',
+                height: 'unset',
+                fontSize: '12px'
+              }}
+            >
+              ✖
+            </Button>
+            <span>{name} ({gender})</span>
+          </div>
         ))}
       </Group>
     </div>
