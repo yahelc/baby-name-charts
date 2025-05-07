@@ -93,7 +93,8 @@ function App() {
   };
 
   useEffect(() => {
-    fetch('data.json')
+    const baseUrl = import.meta.env.BASE_URL || '/baby-name-charts/';
+    fetch(`${baseUrl}data.json`)
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -105,7 +106,7 @@ function App() {
       })
       .catch(error => {
         console.error('Error loading data:', error);
-        console.error('Attempted to fetch from:', window.location.href + 'data.json');
+        console.error('Attempted to fetch from:', `${baseUrl}data.json`);
       });
   }, []);
 
