@@ -93,12 +93,20 @@ function App() {
   };
 
   useEffect(() => {
-    fetch('/baby-name-charts/data.json')
-      .then(response => response.json())
+    fetch('data.json')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
       .then((jsonData: NameData) => {
         setData(jsonData);
       })
-      .catch(error => console.error('Error loading data:', error));
+      .catch(error => {
+        console.error('Error loading data:', error);
+        console.error('Attempted to fetch from:', window.location.href + 'data.json');
+      });
   }, []);
 
   if (!data) {
