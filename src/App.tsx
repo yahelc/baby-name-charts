@@ -1,0 +1,181 @@
+import { MantineProvider, Button, Group, Text } from '@mantine/core';
+import { useState, useEffect } from 'react';
+import type { NameData, NameSelection } from './types';
+import NameSearch from './components/NameSearch';
+import NameChart from './components/NameChart';
+import YearRangeSlider from './components/YearRangeSlider';
+import data from '../data/data.json';
+
+function App() {
+  const [data, setData] = useState<NameData | null>(null);
+  const [selectedNames, setSelectedNames] = useState<NameSelection[]>([]);
+  const [yearRange, setYearRange] = useState<[number, number]>([1880, 2022]);
+  const [availableYearRange, setAvailableYearRange] = useState<[number, number]>([1880, 2022]);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  // Load state from URL on mount
+  useEffect(() => {
+    const hash = window.location.hash.slice(1); // Remove the # symbol
+    if (!hash) return;
+
+    try {
+      const state = JSON.parse(decodeURIComponent(hash));
+      if (state.names && Array.isArray(state.names)) {
+        setSelectedNames(state.names);
+      }
+      if (state.yearRange && Array.isArray(state.yearRange) && state.yearRange.length === 2) {
+        setYearRange(state.yearRange);
+      }
+      // Clear the hash after loading
+      window.history.replaceState(null, '', window.location.pathname);
+    } catch (e) {
+      console.error('Failed to parse state from URL:', e);
+    }
+  }, []);
+
+  const handleCopyLink = async () => {
+    const state = {
+      names: selectedNames,
+      yearRange: yearRange
+    };
+    const hash = encodeURIComponent(JSON.stringify(state));
+    const url = `${window.location.origin}${window.location.pathname}#${hash}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000); // Reset after 2 seconds
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
+  };
+
+  // Update available year range when names are selected
+  useEffect(() => {
+    if (!data || selectedNames.length === 0) {
+      setAvailableYearRange([1880, 2022]);
+      return;
+    }
+
+    let minYear = 2022;
+    let maxYear = 1880;
+
+    selectedNames.forEach(({ name, gender }) => {
+      if (gender === 'All' || gender === 'M') {
+        const years = Object.keys(data[name]?.M || {});
+        if (years.length > 0) {
+          minYear = Math.min(minYear, ...years.map(Number));
+          maxYear = Math.max(maxYear, ...years.map(Number));
+        }
+      }
+      if (gender === 'All' || gender === 'F') {
+        const years = Object.keys(data[name]?.F || {});
+        if (years.length > 0) {
+          minYear = Math.min(minYear, ...years.map(Number));
+          maxYear = Math.max(maxYear, ...years.map(Number));
+        }
+      }
+    });
+
+    setAvailableYearRange([minYear, maxYear]);
+    
+    // If current year range is outside available range, adjust it
+    if (yearRange[0] < minYear || yearRange[1] > maxYear) {
+      setYearRange([minYear, maxYear]);
+    }
+  }, [selectedNames, data]);
+
+  const handleClear = () => {
+    setSelectedNames([]);
+    setYearRange([1880, 2022]);
+  };
+
+  const handleYearRangeChange = (newRange: [number, number]) => {
+    setYearRange(newRange);
+  };
+
+  useEffect(() => {
+    fetch('/data/data.json')
+      .then(response => response.json())
+      .then((jsonData: NameData) => {
+        setData(jsonData);
+      })
+      .catch(error => console.error('Error loading data:', error));
+  }, []);
+
+  if (!data) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <MantineProvider>
+      <div style={{ 
+        padding: '20px', 
+        width: '100%',
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center'
+      }}>
+        <div style={{ 
+          width: '90%',
+          maxWidth: '1800px',
+          minWidth: '1000px'
+        }}>
+          <Group justify="space-between" style={{ marginBottom: '1rem' }}>
+            <h1 style={{ margin: 0 }}>Baby Name Trends</h1>
+            <Group gap="xs">
+              <Button 
+                variant="outline" 
+                color={copySuccess ? "green" : "gray"}
+                onClick={handleCopyLink}
+                disabled={selectedNames.length === 0}
+              >
+                {copySuccess ? "Copied!" : "Copy Link"}
+              </Button>
+              <Button 
+                variant="outline" 
+                color="gray" 
+                onClick={handleClear}
+                disabled={selectedNames.length === 0}
+              >
+                Clear Selection
+              </Button>
+            </Group>
+          </Group>
+          <div style={{ marginBottom: '1rem' }}>
+            <NameSearch 
+              data={data} 
+              selectedNames={selectedNames}
+              onSelectionChange={setSelectedNames}
+            />
+          </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <YearRangeSlider
+              value={yearRange}
+              onChange={handleYearRangeChange}
+            />
+            {selectedNames.length > 0 && (
+              <Text size="xs" c="dimmed" style={{ marginTop: '0.25rem' }}>
+                Available data range: {availableYearRange[0]} - {availableYearRange[1]}
+              </Text>
+            )}
+          </div>
+          <div style={{ 
+            width: '100%',
+            height: '800px',
+            marginBottom: '2rem',
+            minWidth: '800px'
+          }}>
+            <NameChart
+              data={data}
+              selectedNames={selectedNames}
+              yearRange={yearRange}
+            />
+          </div>
+        </div>
+      </div>
+    </MantineProvider>
+  );
+}
+
+export default App;

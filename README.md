@@ -1,35 +1,54 @@
-# baby-name-charts
+# React + TypeScript + Vite
 
-This is an application that will allow you to chart how many babies are born with a given name in a given year over time in the United States according to SSA data. 
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-The data is stored in a JSON file in the following format:
+Currently, two official plugins are available:
 
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default tseslint.config({
+  extends: [
+    // Remove ...tseslint.configs.recommended and replace with this
+    ...tseslint.configs.recommendedTypeChecked,
+    // Alternatively, use this for stricter rules
+    ...tseslint.configs.strictTypeChecked,
+    // Optionally, add this for stylistic rules
+    ...tseslint.configs.stylisticTypeChecked,
+  ],
+  languageOptions: {
+    // other options...
+    parserOptions: {
+      project: ['./tsconfig.node.json', './tsconfig.app.json'],
+      tsconfigRootDir: import.meta.dirname,
+    },
+  },
+})
 ```
-{
-  "Mary": {
-    "M": {
-      "1880": 27,
-      "1881": 29,
-      "1882": 30,
-      "1883": 32,
-      "1884": 36,
-      "1885": 38,
-      "1886": 32,
-   },
-   "F": {
-      "1880": 229,
-...
-```
 
-The UI should have a search box that allows you to pick multiple (name/Gender combos). For example, if I type "Mary", I should be able to pick "Mary (F)" or "Mary (M)", and I should be able to pick both and chart both against eachother. I should also be able to select "Mary (combined)", and that will chart the sum of male and female Marys for each year.  
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-The chart should be a dynamic JavaScript chart that allows you to limit the time range. The granularity is years, and not every name will have baby names in continuity. 
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-The application should store state in the URL, to allow users to share URLs. 
-
-Charts can be built with Plotly or Chartly, should be FOSS, license free, etc. 
-
-This is partially me trying to build a web version of the command line script I used for this this:
-```
-grep -R "Felix,M" | sort | sed -e "s/\.\/yob//" |  sed -e "s/.txt:/,/" | sed -e "s/,[M,F],/,/" | sed -e "s/,.*,/,/" | uplot bar -d,%
+export default tseslint.config({
+  plugins: {
+    // Add the react-x and react-dom plugins
+    'react-x': reactX,
+    'react-dom': reactDom,
+  },
+  rules: {
+    // other rules...
+    // Enable its recommended typescript rules
+    ...reactX.configs['recommended-typescript'].rules,
+    ...reactDom.configs.recommended.rules,
+  },
+})
 ```
