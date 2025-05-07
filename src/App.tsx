@@ -4,7 +4,6 @@ import type { NameData, NameSelection } from './types';
 import NameSearch from './components/NameSearch';
 import NameChart from './components/NameChart';
 import YearRangeSlider from './components/YearRangeSlider';
-import data from '../data/data.json';
 
 function App() {
   const [data, setData] = useState<NameData | null>(null);
@@ -94,7 +93,7 @@ function App() {
   };
 
   useEffect(() => {
-    fetch('/data.json')
+    fetch('/baby-name-charts/data.json')
       .then(response => response.json())
       .then((jsonData: NameData) => {
         setData(jsonData);
