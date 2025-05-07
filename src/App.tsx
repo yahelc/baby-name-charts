@@ -179,20 +179,24 @@ function App() {
       }}
     >
       <div style={{ 
-        padding: '20px', 
-        width: '100%',
+        padding: '10px',
+        width: '100vw',
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        backgroundColor: 'white'
+        backgroundColor: 'white',
+        boxSizing: 'border-box',
+        overflow: 'hidden'
       }}>
         <div style={{ 
           width: '100%',
           maxWidth: '1200px',
-          padding: '0 10px'
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
         }}>
-          <Group justify="space-between" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
+          <Group justify="space-between" style={{ flexWrap: 'wrap', gap: '10px' }}>
             <h1 style={{ margin: 0, fontSize: 'clamp(1.5rem, 4vw, 2rem)' }}>Baby Name Trends</h1>
             <Group gap="xs" style={{ flexWrap: 'wrap' }}>
               <Button 
@@ -215,14 +219,14 @@ function App() {
               </Button>
             </Group>
           </Group>
-          <div style={{ marginBottom: '1rem' }}>
+          <div>
             <NameSearch 
               data={data} 
               selectedNames={selectedNames}
               onSelectionChange={setSelectedNames}
             />
           </div>
-          <div style={{ marginBottom: '1rem' }}>
+          <div>
             <YearRangeSlider
               value={yearRange}
               onChange={handleYearRangeChange}
@@ -235,8 +239,9 @@ function App() {
           </div>
           <div style={{ 
             width: '100%',
-            height: '600px',
-            marginBottom: '2rem'
+            height: '50vh',
+            minHeight: '300px',
+            maxHeight: '600px'
           }}>
             <NameChart
               data={data}

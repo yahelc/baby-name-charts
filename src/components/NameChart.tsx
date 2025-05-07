@@ -111,7 +111,7 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
           display: true,
           text: 'Year',
           font: {
-            size: 16,
+            size: 14,
           },
         },
         min: yearRange[0],
@@ -121,7 +121,11 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
             return tickValue.toString();
           },
           stepSize: 20,
-          autoSkip: false,
+          autoSkip: true,
+          maxRotation: 0,
+          font: {
+            size: 12
+          }
         },
         display: true,
       },
@@ -131,13 +135,16 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
           display: true,
           text: 'Number of Babies',
           font: {
-            size: 16,
+            size: 14,
           },
         },
         ticks: {
           callback: function(tickValue) {
             return tickValue.toLocaleString();
           },
+          font: {
+            size: 12
+          }
         },
       },
     },
@@ -146,7 +153,7 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
         position: 'top',
         labels: {
           boxWidth: 12,
-          padding: 10,
+          padding: 8,
           font: {
             size: 12
           }
@@ -156,7 +163,7 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
         display: true,
         text: 'Baby Name Trends Over Time',
         font: {
-          size: 20,
+          size: 16,
         },
       },
       tooltip: {
@@ -179,10 +186,8 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
   return (
     <div style={{ 
       width: '100%', 
-      height: '600px',
-      position: 'relative',
-      minWidth: '300px',
-      maxWidth: '100%'
+      height: '100%',
+      position: 'relative'
     }}>
       <Line data={chartData} options={options} />
     </div>
