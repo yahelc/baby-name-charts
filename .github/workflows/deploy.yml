@@ -38,4 +38,8 @@ jobs:
           branch: gh-pages
           git-config-name: GitHub Actions
           git-config-email: actions@github.com
-          lfs: true 
+          lfs: true
+          clean: true
+          clean-exclude: |
+            .git
+            .gitattributes 
