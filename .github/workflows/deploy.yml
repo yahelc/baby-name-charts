@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          lfs: true
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -33,4 +35,7 @@ jobs:
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: dist
-          branch: gh-pages 
+          branch: gh-pages
+          git-config-name: GitHub Actions
+          git-config-email: actions@github.com
+          lfs: true 
