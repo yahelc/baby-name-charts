@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { TextInput, Group, Text, ActionIcon, Paper, Box, useMantineTheme } from '@mantine/core';
+import { TextInput, Group, Text, ActionIcon, Paper, Box, useMantineColorScheme } from '@mantine/core';
 import type { NameData, NameSelection } from '../types';
 import { useDebouncedValue } from '@mantine/hooks';
 
@@ -14,7 +14,7 @@ export default function NameSearch({ data, selectedNames, onSelectionChange, onR
   const [searchValue, setSearchValue] = useState('');
   const [debouncedSearch] = useDebouncedValue(searchValue, 300);
 
-  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
 
   const handleNameSelect = useCallback((value: string) => {
     if (!value) return;
@@ -159,14 +159,14 @@ export default function NameSearch({ data, selectedNames, onSelectionChange, onR
             overflowY: 'auto',
             border: '1px solid var(--mantine-color-gray-3)',
             borderRadius: '4px',
-            backgroundColor: theme.colorScheme === 'dark' ? '#1a1b1e' : '#fff',
+            backgroundColor: colorScheme === 'dark' ? '#1a1b1e' : '#fff',
             width: '100%',
             backdropFilter: 'none',
             WebkitBackdropFilter: 'none',
           }}
         >
           {searchData.length === 0 && searchValue.length > 1 && !(searchValue.length === 1 && searchValue === '/') ? (
-            <Box p="xs" c="dimmed" style={{ backgroundColor: theme.colorScheme === 'dark' ? '#1a1b1e' : '#fff' }}>
+            <Box p="xs" c="dimmed" style={{ backgroundColor: colorScheme === 'dark' ? '#1a1b1e' : '#fff' }}>
               No results found
             </Box>
           ) : (
@@ -177,7 +177,7 @@ export default function NameSearch({ data, selectedNames, onSelectionChange, onR
                 style={{
                   cursor: 'pointer',
                   color: 'var(--mantine-color-text)',
-                  backgroundColor: theme.colorScheme === 'dark' ? '#1a1b1e' : '#fff',
+                  backgroundColor: colorScheme === 'dark' ? '#1a1b1e' : '#fff',
                   '&:hover': {
                     backgroundColor: 'var(--mantine-color-default-hover)',
                   },

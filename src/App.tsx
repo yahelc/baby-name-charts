@@ -1,4 +1,4 @@
-import { Button, Group, useMantineTheme, useMantineColorScheme } from '@mantine/core';
+import { Button, Group, useMantineColorScheme } from '@mantine/core';
 import { useState, useEffect, useRef } from 'react';
 import type { NameData, NameSelection } from './types';
 import NameSearch from './components/NameSearch';
@@ -20,7 +20,6 @@ function App() {
   const [copySuccess, setCopySuccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const { colorScheme } = useMantineColorScheme();
-  const theme = useMantineTheme();
   const nameChartRef = useRef<any>(null);
 
   // Load state from URL on mount
@@ -68,14 +67,15 @@ function App() {
         const mergedData: NameData = {};
         chunks.forEach((chunk) => {
           Object.entries(chunk).forEach(([name, genderData]) => {
+            const genderDataTyped = genderData as { M: Record<string, number>; F: Record<string, number> };
             if (!mergedData[name]) {
               mergedData[name] = { M: {}, F: {} };
             }
-            ['M', 'F'].forEach((gender) => {
-              if (genderData[gender]) {
+            (['M', 'F'] as const).forEach((gender) => {
+              if (genderDataTyped[gender]) {
                 mergedData[name][gender] = {
                   ...mergedData[name][gender],
-                  ...genderData[gender]
+                  ...genderDataTyped[gender]
                 };
               }
             });

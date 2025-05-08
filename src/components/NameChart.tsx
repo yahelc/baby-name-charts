@@ -13,7 +13,7 @@ import type { ChartOptions, Chart as ChartType } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import type { NameData, NameSelection } from '../types';
-import { Group, Button, Text, Paper } from '@mantine/core';
+import { Group, Button, Text } from '@mantine/core';
 
 ChartJS.register(
   CategoryScale,
@@ -82,10 +82,7 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
 
       // Sort years and filter by range
       const [rangeStart, rangeEnd] = [Math.min(yearRange[0], yearRange[1]), Math.max(yearRange[0], yearRange[1])];
-      const sortedYears = Array.from(allYears)
-        .map(Number)
-        .filter(year => year >= rangeStart && year <= rangeEnd)
-        .sort((a, b) => a - b);
+
 
       // Generate all years in range
       const allYearsInRange = Array.from(
@@ -270,7 +267,7 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
   };
 
   // Custom external tooltip handler
-  const externalTooltipHandler = (context: any) => {
+  const externalTooltipHandler = () => {
     // We do not render the tooltip here, we use React below
   };
 
@@ -405,9 +402,10 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
       const meta = chartInstance.getDatasetMeta(datasetIndex);
       const point = meta.data[index];
       let dataX: number, dataY: number;
-      if (point.$context && point.$context.parsed) {
-        dataX = point.$context.parsed.x;
-        dataY = point.$context.parsed.y;
+      const pointAny = point as any;
+      if (pointAny.$context && pointAny.$context.parsed) {
+        dataX = pointAny.$context.parsed.x;
+        dataY = pointAny.$context.parsed.y;
       } else {
         // fallback: use dataset data
         const d = chartData.datasets[datasetIndex].data[index] as any;
