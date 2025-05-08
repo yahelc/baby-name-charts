@@ -174,9 +174,9 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     ctx.globalAlpha = 1;
     // Draw triangle pointer
     ctx.beginPath();
-    ctx.moveTo(x, y + boxHeight / 2 - 4);
-    ctx.lineTo(x - 8, y + boxHeight / 2);
-    ctx.lineTo(x, y + boxHeight / 2 + 4);
+    ctx.moveTo(x - 4, y + boxHeight / 2 - 4);
+    ctx.lineTo(x - 12, y + boxHeight / 2);
+    ctx.lineTo(x - 4, y + boxHeight / 2 + 4);
     ctx.closePath();
     ctx.fillStyle = '#212529';
     ctx.fill();

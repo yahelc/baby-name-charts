@@ -1,4 +1,4 @@
-import { Button, Group, useMantineColorScheme } from '@mantine/core';
+import { Button, Group, useMantineColorScheme, Text, Stack } from '@mantine/core';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type { NameData, NameSelection } from './types';
 import NameSearch from './components/NameSearch';
@@ -139,7 +139,101 @@ function App() {
   };
 
   if (loading) {
-    return <div>Loading data chunks...</div>;
+    return (
+      <div style={{
+        width: '100vw',
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colorScheme === 'dark' ? '#1a1b1e' : '#fff',
+        color: colorScheme === 'dark' ? '#fff' : '#1a1b1e',
+      }}>
+        <Stack align="center" gap="xl">
+          <Text
+            size="xl"
+            fw={700}
+            style={{
+              animation: 'bounce 1s infinite',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+          >
+            Loading
+            <Text
+              component="span"
+              size="xl"
+              fw={700}
+              style={{
+                animation: 'pulse 2s infinite',
+              }}
+            >
+              102,482
+            </Text>
+            baby names...
+          </Text>
+          <Text
+            size="lg"
+            c="dimmed"
+            fs="italic"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+          >
+            Counting all the{' '}
+            <span style={{ animation: 'bounce1 1.2s infinite' }}>👶</span>
+            <span style={{ animation: 'bounce2 1.4s infinite' }}>👶🏻</span>
+            <span style={{ animation: 'bounce3 1.6s infinite' }}>👶🏼</span>
+            <span style={{ animation: 'bounce4 1.8s infinite' }}>👶🏽</span>
+            <span style={{ animation: 'bounce5 2.0s infinite' }}>👶🏾</span>
+            <span style={{ animation: 'bounce6 2.2s infinite' }}>👶🏿</span>
+            ...
+          </Text>
+        </Stack>
+        <style>
+          {`
+            @keyframes bounce {
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-10px); }
+            }
+            @keyframes pulse {
+              0%, 100% { transform: scale(1); }
+              50% { transform: scale(1.2); }
+            }
+            @keyframes bounce1 {
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-8px); }
+            }
+            @keyframes bounce2 {
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-10px); }
+            }
+            @keyframes bounce3 {
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-12px); }
+            }
+            @keyframes bounce4 {
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-10px); }
+            }
+            @keyframes bounce5 {
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-8px); }
+            }
+            @keyframes bounce6 {
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-12px); }
+            }
+          `}
+        </style>
+      </div>
+    );
   }
 
   if (!data) {
