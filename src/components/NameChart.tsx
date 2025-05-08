@@ -34,7 +34,18 @@ interface NameChartProps {
 
 const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange }: NameChartProps, ref) {
   const chartRef = useRef<ChartJS<'line'>>(null);
-  const [persistentTooltip, setPersistentTooltip] = useState<{datasetIndex: number, index: number, x: number, y: number, label: string, value: string} | null>(null);
+  // Store data coordinates (dataX, dataY) and recalculate pixel position on render
+  const [persistentTooltip, setPersistentTooltip] = useState<
+    | null
+    | {
+        datasetIndex: number;
+        index: number;
+        dataX: number;
+        dataY: number;
+        label: string;
+        value: string;
+      }
+  >(null);
 
   // Expose a clearTooltip method to parent
   useImperativeHandle(ref, () => ({
@@ -145,8 +156,11 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     // Tooltip box
     const boxWidth = 120;
     const boxHeight = 36;
-    const x = tooltip.x + 12;
-    const y = tooltip.y - boxHeight / 2;
+    // Recalculate pixel position from data coordinates
+    const xScale = chart.scales.x;
+    const yScale = chart.scales.y;
+    const x = xScale.getPixelForValue(tooltip.dataX) + 12;
+    const y = yScale.getPixelForValue(tooltip.dataY) - boxHeight / 2;
     // Draw background
     ctx.globalAlpha = 0.95;
     ctx.fillStyle = '#212529';
@@ -161,6 +175,16 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     ctx.fill();
     ctx.stroke();
     ctx.globalAlpha = 1;
+    // Draw triangle pointer
+    ctx.beginPath();
+    ctx.moveTo(x, y + boxHeight / 2 - 4);
+    ctx.lineTo(x - 8, y + boxHeight / 2);
+    ctx.lineTo(x, y + boxHeight / 2 + 4);
+    ctx.closePath();
+    ctx.fillStyle = '#212529';
+    ctx.fill();
+    ctx.strokeStyle = '#222';
+    ctx.stroke();
     // Year text
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 12px sans-serif';
@@ -193,8 +217,10 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     ctx.save();
     const boxWidth = 120;
     const boxHeight = 36;
-    const x = tooltip.x + 12;
-    const y = tooltip.y - boxHeight / 2;
+    const xScale = chart.scales.x;
+    const yScale = chart.scales.y;
+    const x = xScale.getPixelForValue(tooltip.dataX) + 12;
+    const y = yScale.getPixelForValue(tooltip.dataY) - boxHeight / 2;
     ctx.clearRect(x - 2, y - 2, boxWidth + 4, boxHeight + 4);
     ctx.restore();
     chart.update();
@@ -378,7 +404,16 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
       const { datasetIndex, index } = points[0];
       const meta = chartInstance.getDatasetMeta(datasetIndex);
       const point = meta.data[index];
-      const { x, y } = point.getProps(['x', 'y'], true);
+      let dataX: number, dataY: number;
+      if (point.$context && point.$context.parsed) {
+        dataX = point.$context.parsed.x;
+        dataY = point.$context.parsed.y;
+      } else {
+        // fallback: use dataset data
+        const d = chartData.datasets[datasetIndex].data[index] as any;
+        dataX = d.x;
+        dataY = d.y;
+      }
       const label = chartData.datasets[datasetIndex].label || '';
       const value = chartData.datasets[datasetIndex].data[index].label || '';
       if (
@@ -388,7 +423,7 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
       ) {
         setPersistentTooltip(null);
       } else {
-        setPersistentTooltip({ datasetIndex, index, x, y, label, value });
+        setPersistentTooltip({ datasetIndex, index, dataX, dataY, label, value });
       }
     }
   };
@@ -414,50 +449,62 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
       </Group>
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
         <Line ref={chartRef} data={chartData} options={options} onClick={handleChartClick} />
-        {persistentTooltip && (
-          <div
-            style={{
-              position: 'absolute',
-              left: persistentTooltip.x + 12,
-              top: persistentTooltip.y - 18,
-              pointerEvents: 'none',
-              zIndex: 10,
-              background: 'rgba(33, 37, 41, 0.95)',
-              color: '#fff',
-              borderRadius: 4,
-              fontSize: 12,
-              fontFamily: 'inherit',
-              padding: '4px 8px',
-              minWidth: 100,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              border: '1px solid #222',
-              textAlign: 'left',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-            }}
-          >
-            <div style={{ fontSize: 11, opacity: 0.85, marginBottom: 1 }}>
-              Year: <b>{chartData.datasets[persistentTooltip.datasetIndex].data[persistentTooltip.index].x}</b>
+        {persistentTooltip && chartRef.current && (() => {
+          // Recalculate pixel position from data coordinates
+          const chart = chartRef.current;
+          const xScale = chart.scales.x;
+          const yScale = chart.scales.y;
+          const px = xScale.getPixelForValue(persistentTooltip.dataX);
+          const py = yScale.getPixelForValue(persistentTooltip.dataY);
+          return (
+            <div
+              style={{
+                position: 'absolute',
+                left: px + 12,
+                top: py - 18,
+                pointerEvents: 'none',
+                zIndex: 10,
+                background: 'rgba(33, 37, 41, 0.95)',
+                color: '#fff',
+                borderRadius: 4,
+                fontSize: 12,
+                fontFamily: 'inherit',
+                padding: '4px 8px',
+                minWidth: 100,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                border: '1px solid #222',
+                textAlign: 'left',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+              }}
+            >
+              {/* Triangle pointer */}
+              <svg width="16" height="16" style={{ position: 'absolute', left: -16, top: 13, pointerEvents: 'none' }}>
+                <polygon points="16,4 0,8 16,12" fill="#212529" stroke="#222" strokeWidth="1" />
+              </svg>
+              <div style={{ fontSize: 11, opacity: 0.85, marginBottom: 1 }}>
+                Year: <b>{chartData.datasets[persistentTooltip.datasetIndex].data[persistentTooltip.index].x}</b>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: chartData.datasets[persistentTooltip.datasetIndex].borderColor as string,
+                    border: '1.2px solid #fff',
+                    marginRight: 3,
+                  }}
+                />
+                <span style={{ fontWeight: 600, fontSize: 12 }}>
+                  {persistentTooltip.label}: {persistentTooltip.value}
+                </span>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span
-                style={{
-                  display: 'inline-block',
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: chartData.datasets[persistentTooltip.datasetIndex].borderColor as string,
-                  border: '1.2px solid #fff',
-                  marginRight: 3,
-                }}
-              />
-              <span style={{ fontWeight: 600, fontSize: 12 }}>
-                {persistentTooltip.label}: {persistentTooltip.value}
-              </span>
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
         <Group gap="xs">
