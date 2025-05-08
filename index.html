@@ -15,6 +15,20 @@
       #root {
         background-color: white;
       }
+      .combobox-option {
+        transition: background-color 0.2s ease;
+      }
+      .combobox-option:hover {
+        background-color: #f8f9fa;
+      }
+      .combobox-option[data-selected] {
+        background-color: #e7f5ff;
+        color: #228be6;
+      }
+      .mantine-InputBase-input:focus {
+        border-color: #228be6;
+        box-shadow: 0 0 0 2px rgba(34, 139, 230, 0.1);
+      }
     </style>
   </head>
   <body>

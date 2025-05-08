@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Combobox, InputBase, useCombobox, Group, Button } from '@mantine/core';
+import { useState, useMemo, useCallback } from 'react';
+import { Combobox, InputBase, useCombobox, Group, Button, Text } from '@mantine/core';
 import type { NameData, NameSelection } from '../types';
 
 interface NameSearchProps {
@@ -8,8 +8,12 @@ interface NameSearchProps {
   onSelectionChange: (names: NameSelection[]) => void;
 }
 
+const MAX_RESULTS = 50; // Limit the number of results to prevent performance issues
+
 export default function NameSearch({ data, selectedNames, onSelectionChange }: NameSearchProps) {
   const [searchValue, setSearchValue] = useState('');
+  const [debouncedSearchValue, setDebouncedSearchValue] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const combobox = useCombobox();
 
   // Create a cache of just the names and their gender availability
@@ -24,22 +28,48 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
     return cache;
   }, [data]);
 
+  // Debounce the search value
+  useMemo(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchValue(searchValue);
+    }, 300); // Wait 300ms after the last keystroke
+
+    return () => clearTimeout(timer);
+  }, [searchValue]);
+
   const suggestions = useMemo(() => {
-    if (!searchValue) return [];
+    if (!debouncedSearchValue) return [];
     
-    const searchLower = searchValue.toLowerCase();
-    const matches = Object.entries(nameCache)
-      .filter(([name]) => name.toLowerCase().startsWith(searchLower))
-      .flatMap(([name, { hasM, hasF }]) => {
-        const options: string[] = [];
-        if (hasM) options.push(`${name} (M)`);
-        if (hasF) options.push(`${name} (F)`);
-        if (hasM || hasF) options.push(`${name} (All)`);
-        return options;
-      });
+    setIsSearching(true);
+    const searchLower = debouncedSearchValue.toLowerCase();
     
+    // Use a more efficient search algorithm
+    const matches: string[] = [];
+    let count = 0;
+    
+    // First try exact matches
+    for (const [name, { hasM, hasF }] of Object.entries(nameCache)) {
+      if (count >= MAX_RESULTS) break;
+      
+      if (name.toLowerCase().startsWith(searchLower)) {
+        if (hasM) {
+          matches.push(`${name} (M)`);
+          count++;
+        }
+        if (hasF) {
+          matches.push(`${name} (F)`);
+          count++;
+        }
+        if ((hasM || hasF) && count < MAX_RESULTS) {
+          matches.push(`${name} (All)`);
+          count++;
+        }
+      }
+    }
+    
+    setIsSearching(false);
     return matches;
-  }, [nameCache, searchValue]);
+  }, [nameCache, debouncedSearchValue]);
 
   const handleSelect = (value: string) => {
     const [name, gender] = value.split(' (');
@@ -49,6 +79,7 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
       onSelectionChange([...selectedNames, { name, gender: cleanGender }]);
     }
     setSearchValue('');
+    setDebouncedSearchValue('');
     combobox.closeDropdown();
   };
 
@@ -62,6 +93,23 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
         store={combobox}
         onOptionSubmit={handleSelect}
         withinPortal={false}
+        styles={{
+          dropdown: {
+            borderRadius: '8px',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+            border: '1px solid #e9ecef',
+            backgroundColor: 'white',
+            maxHeight: '300px',
+            overflowY: 'auto'
+          },
+          option: {
+            padding: '8px 12px',
+            cursor: 'pointer'
+          }
+        }}
+        classNames={{
+          option: 'combobox-option'
+        }}
       >
         <Combobox.Target>
           <InputBase
@@ -75,19 +123,40 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
             onBlur={() => combobox.closeDropdown()}
             placeholder="Search for a name..."
             style={{ marginBottom: '1rem' }}
+            styles={{
+              input: {
+                borderRadius: '8px',
+                border: '1px solid #e9ecef',
+                padding: '8px 12px',
+                fontSize: '14px'
+              }
+            }}
           />
         </Combobox.Target>
 
         <Combobox.Dropdown>
           <Combobox.Options>
-            {suggestions.length === 0 ? (
-              <Combobox.Empty>No results found</Combobox.Empty>
+            {isSearching ? (
+              <Combobox.Empty style={{ padding: '12px', color: '#868e96', textAlign: 'center' }}>
+                Searching...
+              </Combobox.Empty>
+            ) : suggestions.length === 0 ? (
+              <Combobox.Empty style={{ padding: '12px', color: '#868e96', textAlign: 'center' }}>
+                {searchValue ? 'No results found' : 'Start typing to search...'}
+              </Combobox.Empty>
             ) : (
-              suggestions.map((item) => (
-                <Combobox.Option value={item} key={item}>
-                  {item}
-                </Combobox.Option>
-              ))
+              <>
+                {suggestions.map((item) => (
+                  <Combobox.Option value={item} key={item}>
+                    {item}
+                  </Combobox.Option>
+                ))}
+                {suggestions.length >= MAX_RESULTS && (
+                  <Text size="xs" c="dimmed" style={{ padding: '8px 12px', textAlign: 'center' }}>
+                    Showing first {MAX_RESULTS} results...
+                  </Text>
+                )}
+              </>
             )}
           </Combobox.Options>
         </Combobox.Dropdown>
@@ -101,8 +170,8 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
               display: 'flex',
               alignItems: 'center',
               backgroundColor: '#f8f9fa',
-              border: '1px solid #dee2e6',
-              borderRadius: '4px',
+              border: '1px solid #e9ecef',
+              borderRadius: '6px',
               padding: '4px 8px',
               gap: '4px'
             }}
@@ -116,12 +185,13 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
                 padding: '0 4px',
                 minWidth: 'unset',
                 height: 'unset',
-                fontSize: '12px'
+                fontSize: '12px',
+                color: '#868e96'
               }}
             >
               ✖
             </Button>
-            <span>{name} ({gender})</span>
+            <span style={{ fontSize: '14px', color: '#495057' }}>{name} ({gender})</span>
           </div>
         ))}
       </Group>
