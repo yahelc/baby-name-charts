@@ -1,8 +1,9 @@
 import { Button, Group, useMantineColorScheme } from '@mantine/core';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type { NameData, NameSelection } from './types';
 import NameSearch from './components/NameSearch';
 import NameChart from './components/NameChart';
+import interestingNames from './interestingNames';
 
 interface ChunkInfo {
   filename: string;
@@ -122,6 +123,21 @@ function App() {
     setSelectedNames(selectedNames.filter((_, i) => i !== index));
   };
 
+  // Shuffle interestingNames once at page load
+  const shuffledInteresting = useMemo(() => {
+    const arr = [...interestingNames];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }, []);
+  const [interestingIndex, setInterestingIndex] = useState(0);
+  const handleLoadInteresting = () => {
+    setSelectedNames(shuffledInteresting[interestingIndex].names);
+    setInterestingIndex((interestingIndex + 1) % shuffledInteresting.length);
+  };
+
   if (loading) {
     return <div>Loading data chunks...</div>;
   }
@@ -198,6 +214,29 @@ function App() {
             yearRange={[1880, 2022]}
           />
         </div>
+        {/* Footer */}
+        <footer style={{
+          width: '100%',
+          marginTop: 300,
+          padding: '24px 0 8px 0',
+          textAlign: 'center',
+          borderTop: '1px solid #eee',
+          color: '#888',
+          fontSize: 15,
+        }}>
+          <div style={{ marginBottom: 8 }}>
+            <a
+              href="#"
+              style={{ color: '#228be6', textDecoration: 'underline', cursor: 'pointer', fontSize: 16 }}
+              onClick={e => { e.preventDefault(); handleLoadInteresting(); }}
+            >
+              Load an interesting name
+            </a>
+          </div>
+          <div style={{ fontSize: 14, color: '#aaa' }}>
+            by Yahel Carmon
+          </div>
+        </footer>
       </div>
     </div>
   );
