@@ -131,6 +131,30 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
     }
   };
 
+  const handleDownloadChart = () => {
+    if (chartRef.current) {
+      const link = document.createElement('a');
+      link.download = 'baby-name-trends.png';
+      link.href = chartRef.current.toBase64Image();
+      link.click();
+    }
+  };
+
+  const handleCopyChart = async () => {
+    if (chartRef.current) {
+      try {
+        const blob = await fetch(chartRef.current.toBase64Image()).then(r => r.blob());
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'image/png': blob
+          })
+        ]);
+      } catch (err) {
+        console.error('Failed to copy chart:', err);
+      }
+    }
+  };
+
   const options: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
@@ -267,6 +291,28 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
         </Button>
       </Group>
       <Line ref={chartRef} data={chartData} options={options} />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+        <Group gap="xs">
+          <Button
+            variant="light"
+            size="xs"
+            onClick={handleDownloadChart}
+            style={{ minWidth: '80px' }}
+            leftSection="💾 "
+          >
+            Download
+          </Button>
+          <Button
+            variant="light"
+            size="xs"
+            onClick={handleCopyChart}
+            style={{ minWidth: '80px' }}
+            leftSection="🖼️ "
+          >
+            Copy
+          </Button>
+        </Group>
+      </div>
     </div>
   );
 } 
