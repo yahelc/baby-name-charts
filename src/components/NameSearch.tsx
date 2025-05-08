@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Combobox, InputBase, useCombobox, Group, Text, ActionIcon } from '@mantine/core';
+import { TextInput, Group, Text, ActionIcon, Paper, Box } from '@mantine/core';
 import type { NameData, NameSelection } from '../types';
 import { useDebouncedValue } from '@mantine/hooks';
 
@@ -12,7 +12,6 @@ interface NameSearchProps {
 export default function NameSearch({ data, selectedNames, onSelectionChange }: NameSearchProps) {
   const [searchValue, setSearchValue] = useState('');
   const [debouncedSearch] = useDebouncedValue(searchValue, 300);
-  const combobox = useCombobox();
 
   const handleNameSelect = useCallback((value: string) => {
     if (!value) return;
@@ -49,14 +48,13 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
       ]);
     }
     setSearchValue('');
-    combobox.closeDropdown();
   }, [data, selectedNames, onSelectionChange]);
 
   const handleRemoveName = useCallback((index: number) => {
     onSelectionChange(selectedNames.filter((_, i) => i !== index));
   }, [selectedNames, onSelectionChange]);
 
-  const autocompleteData = useMemo(() => {
+  const searchData = useMemo(() => {
     if (!debouncedSearch) return [];
 
     const searchLower = debouncedSearch.toLowerCase();
@@ -111,72 +109,65 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
 
   return (
     <div style={{ width: '100%' }}>
-      <Combobox
-        store={combobox}
-        onOptionSubmit={handleNameSelect}
-        withinPortal={false}
-        styles={{
-          dropdown: {
-            borderRadius: '4px',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-            border: '1px solid var(--mantine-color-gray-3)',
-            backgroundColor: 'white',
-            width: '200%',
-          },
-          option: {
-            padding: '8px 12px',
-            cursor: 'pointer',
-            '&[dataSelected]': {
-              backgroundColor: 'var(--mantine-color-blue-1)',
-              color: 'var(--mantine-color-blue-9)',
-            },
-            '&[dataSelected]:hover': {
-              backgroundColor: 'var(--mantine-color-blue-2)',
-            },
-            '&:hover': {
-              backgroundColor: 'var(--mantine-color-gray-0)',
-            },
-          },
-        }}
-      >
-        <Combobox.Target>
-          <InputBase
-            value={searchValue}
-            onChange={(event) => {
-              setSearchValue(event.currentTarget.value);
-              combobox.openDropdown();
-            }}
-            onClick={() => combobox.openDropdown()}
-            onFocus={() => combobox.openDropdown()}
-            onBlur={() => combobox.closeDropdown()}
-            placeholder="Search for a name or use /regex/ pattern"
-            size="md"
-            radius="sm"
-            style={{ 
+      <div style={{ width: '100%', position: 'relative' }}>
+        <TextInput
+          value={searchValue}
+          onChange={(event) => setSearchValue(event.currentTarget.value)}
+          placeholder="Search for a name or use /regex/ pattern"
+          size="md"
+          radius="sm"
+          styles={{
+            input: {
               width: '100%',
-              '&:focus': {
-                borderColor: 'var(--mantine-color-blue-6)',
-              },
+              minWidth: '100%',
+            },
+            root: {
+              width: '100%',
+            },
+          }}
+        />
+        
+        {searchValue && (
+          <Paper
+            shadow="sm"
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              zIndex: 1000,
+              maxHeight: '300px',
+              overflowY: 'auto',
+              border: '1px solid var(--mantine-color-gray-3)',
+              borderRadius: '4px',
+              backgroundColor: 'white',
+              width: '100%',
             }}
-          />
-        </Combobox.Target>
-
-        <Combobox.Dropdown>
-          <Combobox.Options>
-            {autocompleteData.length === 0 && searchValue.length > 1 && !(searchValue.length === 1 && searchValue === '/') ? (
-              <Combobox.Empty style={{ padding: '12px', color: 'var(--mantine-color-gray-6)' }}>
+          >
+            {searchData.length === 0 && searchValue.length > 1 && !(searchValue.length === 1 && searchValue === '/') ? (
+              <Box p="xs" c="dimmed">
                 No results found
-              </Combobox.Empty>
+              </Box>
             ) : (
-              autocompleteData.map((item) => (
-                <Combobox.Option value={item} key={item}>
+              searchData.map((item) => (
+                <Box
+                  key={item}
+                  p="xs"
+                  style={{
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: 'var(--mantine-color-gray-0)',
+                    },
+                  }}
+                  onClick={() => handleNameSelect(item)}
+                >
                   {item}
-                </Combobox.Option>
+                </Box>
               ))
             )}
-          </Combobox.Options>
-        </Combobox.Dropdown>
-      </Combobox>
+          </Paper>
+        )}
+      </div>
 
       <Group gap="xs" mt="xs" style={{ flexWrap: 'wrap' }}>
         {selectedNames.map((selection, index) => (

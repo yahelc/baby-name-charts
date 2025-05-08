@@ -172,12 +172,14 @@ function App() {
               </Button>
             </Group>
           </Group>
-          <div>
-            <NameSearch 
-              data={data} 
-              selectedNames={selectedNames}
-              onSelectionChange={setSelectedNames}
-            />
+          <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <div style={{ width: '100%', maxWidth: '800px' }}>
+              <NameSearch 
+                data={data} 
+                selectedNames={selectedNames}
+                onSelectionChange={setSelectedNames}
+              />
+            </div>
           </div>
           <div style={{ 
             width: '100%',
