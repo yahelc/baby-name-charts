@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback } from 'react';
-import { Combobox, InputBase, useCombobox, Group, Button, Text } from '@mantine/core';
+import { useState, useCallback, useMemo } from 'react';
+import { Combobox, InputBase, useCombobox, Group, Text, ActionIcon } from '@mantine/core';
 import type { NameData, NameSelection } from '../types';
+import { useDebouncedValue } from '@mantine/hooks';
 
 interface NameSearchProps {
   data: NameData;
@@ -8,190 +9,215 @@ interface NameSearchProps {
   onSelectionChange: (names: NameSelection[]) => void;
 }
 
-const MAX_RESULTS = 50; // Limit the number of results to prevent performance issues
-
 export default function NameSearch({ data, selectedNames, onSelectionChange }: NameSearchProps) {
   const [searchValue, setSearchValue] = useState('');
-  const [debouncedSearchValue, setDebouncedSearchValue] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
+  const [debouncedSearch] = useDebouncedValue(searchValue, 300);
   const combobox = useCombobox();
 
-  // Create a cache of just the names and their gender availability
-  const nameCache = useMemo(() => {
-    const cache: { [key: string]: { hasM: boolean; hasF: boolean } } = {};
-    Object.entries(data).forEach(([name, genders]) => {
-      cache[name] = {
-        hasM: !!genders.M,
-        hasF: !!genders.F
-      };
-    });
-    return cache;
-  }, [data]);
+  const handleNameSelect = useCallback((value: string) => {
+    if (!value) return;
 
-  // Debounce the search value
-  useMemo(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchValue(searchValue);
-    }, 300); // Wait 300ms after the last keystroke
-
-    return () => clearTimeout(timer);
-  }, [searchValue]);
-
-  const suggestions = useMemo(() => {
-    if (!debouncedSearchValue) return [];
-    
-    setIsSearching(true);
-    const searchLower = debouncedSearchValue.toLowerCase();
-    
-    // Use a more efficient search algorithm
-    const matches: string[] = [];
-    let count = 0;
-    
-    // First try exact matches
-    for (const [name, { hasM, hasF }] of Object.entries(nameCache)) {
-      if (count >= MAX_RESULTS) break;
-      
-      if (name.toLowerCase().startsWith(searchLower)) {
-        if (hasM) {
-          matches.push(`${name} (M)`);
-          count++;
+    // Check if this is a regex pattern
+    if (value.startsWith('/')) {
+      const pattern = value.endsWith('/') ? value.slice(1, -1) : value.slice(1);
+      try {
+        const regex = new RegExp(pattern, 'i');
+        const matches = Object.keys(data).filter(name => regex.test(name));
+        
+        if (matches.length > 0) {
+          onSelectionChange([
+            ...selectedNames,
+            {
+              name: value,
+              gender: 'All',
+              isRegex: true,
+              matches
+            }
+          ]);
         }
-        if (hasF) {
-          matches.push(`${name} (F)`);
-          count++;
-        }
-        if ((hasM || hasF) && count < MAX_RESULTS) {
-          matches.push(`${name} (All)`);
-          count++;
-        }
+      } catch (e) {
+        console.error('Invalid regex pattern:', e);
       }
-    }
-    
-    setIsSearching(false);
-    return matches;
-  }, [nameCache, debouncedSearchValue]);
-
-  const handleSelect = (value: string) => {
-    const [name, gender] = value.split(' (');
-    const cleanGender = gender.replace(')', '') as 'M' | 'F' | 'All';
-    
-    if (!selectedNames.some(n => n.name === name && n.gender === cleanGender)) {
-      onSelectionChange([...selectedNames, { name, gender: cleanGender }]);
+    } else {
+      // Regular name selection
+      const name = value.split(' (')[0];
+      const gender = value.includes('(M)') ? 'M' : 'F';
+      
+      onSelectionChange([
+        ...selectedNames,
+        { name, gender }
+      ]);
     }
     setSearchValue('');
-    setDebouncedSearchValue('');
     combobox.closeDropdown();
-  };
+  }, [data, selectedNames, onSelectionChange]);
 
-  const handleRemove = (name: string, gender: 'M' | 'F' | 'All') => {
-    onSelectionChange(selectedNames.filter(n => !(n.name === name && n.gender === gender)));
-  };
+  const handleRemoveName = useCallback((index: number) => {
+    onSelectionChange(selectedNames.filter((_, i) => i !== index));
+  }, [selectedNames, onSelectionChange]);
+
+  const autocompleteData = useMemo(() => {
+    if (!debouncedSearch) return [];
+
+    const searchLower = debouncedSearch.toLowerCase();
+    const results: string[] = [];
+
+    // If the search starts with /, treat it as a regex pattern
+    if (debouncedSearch.startsWith('/')) {
+      try {
+        // If the pattern isn't complete (no closing /), use what we have so far
+        const pattern = debouncedSearch.endsWith('/') 
+          ? debouncedSearch.slice(1, -1)
+          : debouncedSearch.slice(1);
+        const regex = new RegExp(pattern, 'i');
+        const matches = Object.keys(data)
+          .filter(name => regex.test(name))
+          .slice(0, 10);
+        
+        if (matches.length > 0) {
+          // Show the regex pattern as a single option
+          results.push(debouncedSearch);
+          // Show the matches as individual options
+          matches.forEach(match => {
+            if (Object.keys(data[match].M).length > 0) {
+              results.push(`${match} (M)`);
+            }
+            if (Object.keys(data[match].F).length > 0) {
+              results.push(`${match} (F)`);
+            }
+          });
+        }
+      } catch (e) {
+        // If the regex is invalid, just show the pattern
+        results.push(debouncedSearch);
+      }
+      return results;
+    }
+
+    // Regular name search
+    Object.entries(data).forEach(([name, genderData]) => {
+      if (name.toLowerCase().includes(searchLower)) {
+        if (Object.keys(genderData.M).length > 0) {
+          results.push(`${name} (M)`);
+        }
+        if (Object.keys(genderData.F).length > 0) {
+          results.push(`${name} (F)`);
+        }
+      }
+    });
+
+    return results.slice(0, 10);
+  }, [data, debouncedSearch]);
 
   return (
-    <div>
+    <div style={{ width: '100%' }}>
       <Combobox
         store={combobox}
-        onOptionSubmit={handleSelect}
+        onOptionSubmit={handleNameSelect}
         withinPortal={false}
         styles={{
           dropdown: {
-            borderRadius: '8px',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-            border: '1px solid #e9ecef',
+            borderRadius: '4px',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+            border: '1px solid var(--mantine-color-gray-3)',
             backgroundColor: 'white',
-            maxHeight: '300px',
-            overflowY: 'auto'
           },
           option: {
             padding: '8px 12px',
-            cursor: 'pointer'
-          }
-        }}
-        classNames={{
-          option: 'combobox-option'
+            cursor: 'pointer',
+            '&[dataSelected]': {
+              backgroundColor: 'var(--mantine-color-blue-1)',
+              color: 'var(--mantine-color-blue-9)',
+            },
+            '&[dataSelected]:hover': {
+              backgroundColor: 'var(--mantine-color-blue-2)',
+            },
+            '&:hover': {
+              backgroundColor: 'var(--mantine-color-gray-0)',
+            },
+          },
         }}
       >
         <Combobox.Target>
           <InputBase
             value={searchValue}
             onChange={(event) => {
-              setSearchValue(event.currentTarget.value);
-              combobox.openDropdown();
+              const value = event.currentTarget.value;
+              setSearchValue(value);
+              if (value.startsWith('/') && value.endsWith('/')) {
+                try {
+                  const pattern = value.slice(1, -1);
+                  new RegExp(pattern, 'i');
+                  combobox.openDropdown();
+                } catch (e) {
+                  // Invalid regex, don't open dropdown
+                }
+              } else {
+                combobox.openDropdown();
+              }
             }}
             onClick={() => combobox.openDropdown()}
             onFocus={() => combobox.openDropdown()}
             onBlur={() => combobox.closeDropdown()}
-            placeholder="Search for a name..."
-            style={{ marginBottom: '1rem' }}
-            styles={{
-              input: {
-                borderRadius: '8px',
-                border: '1px solid #e9ecef',
-                padding: '8px 12px',
-                fontSize: '14px'
-              }
+            placeholder="Search for a name or use /regex/ pattern"
+            size="md"
+            radius="sm"
+            style={{ 
+              width: '100%',
+              '&:focus': {
+                borderColor: 'var(--mantine-color-blue-6)',
+              },
             }}
           />
         </Combobox.Target>
 
         <Combobox.Dropdown>
           <Combobox.Options>
-            {isSearching ? (
-              <Combobox.Empty style={{ padding: '12px', color: '#868e96', textAlign: 'center' }}>
-                Searching...
-              </Combobox.Empty>
-            ) : suggestions.length === 0 ? (
-              <Combobox.Empty style={{ padding: '12px', color: '#868e96', textAlign: 'center' }}>
-                {searchValue ? 'No results found' : 'Start typing to search...'}
+            {autocompleteData.length === 0 ? (
+              <Combobox.Empty style={{ padding: '12px', color: 'var(--mantine-color-gray-6)' }}>
+                No results found
               </Combobox.Empty>
             ) : (
-              <>
-                {suggestions.map((item) => (
-                  <Combobox.Option value={item} key={item}>
-                    {item}
-                  </Combobox.Option>
-                ))}
-                {suggestions.length >= MAX_RESULTS && (
-                  <Text size="xs" c="dimmed" style={{ padding: '8px 12px', textAlign: 'center' }}>
-                    Showing first {MAX_RESULTS} results...
-                  </Text>
-                )}
-              </>
+              autocompleteData.map((item) => (
+                <Combobox.Option value={item} key={item}>
+                  {item}
+                </Combobox.Option>
+              ))
             )}
           </Combobox.Options>
         </Combobox.Dropdown>
       </Combobox>
 
-      <Group gap="xs" style={{ flexWrap: 'wrap' }}>
-        {selectedNames.map(({ name, gender }) => (
+      <Group gap="xs" mt="xs" style={{ flexWrap: 'wrap' }}>
+        {selectedNames.map((selection, index) => (
           <div
-            key={`${name}-${gender}`}
+            key={`${selection.name}-${selection.gender}-${index}`}
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              backgroundColor: '#f8f9fa',
-              border: '1px solid #e9ecef',
-              borderRadius: '6px',
+              backgroundColor: 'var(--mantine-color-blue-0)',
+              border: '1px solid var(--mantine-color-blue-3)',
+              borderRadius: '4px',
               padding: '4px 8px',
-              gap: '4px'
+              gap: '4px',
+              color: 'var(--mantine-color-blue-9)',
             }}
           >
-            <Button
+            <ActionIcon
               variant="subtle"
-              color="gray"
+              color="blue"
               size="xs"
-              onClick={() => handleRemove(name, gender)}
+              onClick={() => handleRemoveName(index)}
               style={{
-                padding: '0 4px',
-                minWidth: 'unset',
-                height: 'unset',
-                fontSize: '12px',
-                color: '#868e96'
+                marginRight: '-4px',
+                marginLeft: '-4px',
               }}
             >
               ✖
-            </Button>
-            <span style={{ fontSize: '14px', color: '#495057' }}>{name} ({gender})</span>
+            </ActionIcon>
+            <Text size="sm" style={{ whiteSpace: 'nowrap' }}>
+              {selection.isRegex ? selection.name : `${selection.name} (${selection.gender})`}
+            </Text>
           </div>
         ))}
       </Group>

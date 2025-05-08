@@ -66,3 +66,12 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+.autocomplete-option[data-selected] {
+  background-color: var(--mantine-color-blue-1);
+  color: var(--mantine-color-blue-9);
+}
+
+.autocomplete-option[data-selected]:hover {
+  background-color: var(--mantine-color-blue-2);
+}

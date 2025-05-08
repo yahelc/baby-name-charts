@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -11,7 +11,9 @@ import {
 } from 'chart.js';
 import type { ChartOptions } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import zoomPlugin from 'chartjs-plugin-zoom';
 import type { NameData, NameSelection } from '../types';
+import { Group, Button, Text } from '@mantine/core';
 
 ChartJS.register(
   CategoryScale,
@@ -20,7 +22,8 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  zoomPlugin
 );
 
 interface NameChartProps {
@@ -30,36 +33,61 @@ interface NameChartProps {
 }
 
 export default function NameChart({ data, selectedNames, yearRange }: NameChartProps) {
+  const chartRef = useRef<ChartJS<'line'>>(null);
+
   const chartData = useMemo(() => {
-    const datasets = selectedNames.map(({ name, gender }, index) => {
+    const datasets = selectedNames.map(({ name, gender, isRegex, matches }, index) => {
       // Get all available years for this name
       const allYears = new Set<string>();
-      if (gender === 'All' || gender === 'M') {
-        Object.keys(data[name]?.M || {}).forEach(year => allYears.add(year));
+      
+      if (isRegex && matches) {
+        // For regex matches, combine data from all matching names
+        matches.forEach(matchName => {
+          const maleYears = Object.keys(data[matchName]?.M || {});
+          const femaleYears = Object.keys(data[matchName]?.F || {});
+          maleYears.forEach(year => allYears.add(year));
+          femaleYears.forEach(year => allYears.add(year));
+        });
+      } else {
+        // Regular name selection
+        if (gender === 'All' || gender === 'M') {
+          Object.keys(data[name]?.M || {}).forEach(year => allYears.add(year));
+        }
+        if (gender === 'All' || gender === 'F') {
+          Object.keys(data[name]?.F || {}).forEach(year => allYears.add(year));
+        }
       }
-      if (gender === 'All' || gender === 'F') {
-        Object.keys(data[name]?.F || {}).forEach(year => allYears.add(year));
-      }
+
+      // Find the first year this name appears (across all years, not just the range)
+      const firstYear = Array.from(allYears).length > 0 
+        ? Math.min(...Array.from(allYears).map(Number))
+        : Math.min(yearRange[0], yearRange[1]);
 
       // Sort years and filter by range
+      const [rangeStart, rangeEnd] = [Math.min(yearRange[0], yearRange[1]), Math.max(yearRange[0], yearRange[1])];
       const sortedYears = Array.from(allYears)
         .map(Number)
-        .filter(year => year >= yearRange[0] && year <= yearRange[1])
+        .filter(year => year >= rangeStart && year <= rangeEnd)
         .sort((a, b) => a - b);
-
-      // Find the first year this name appears
-      const firstYear = Math.min(...sortedYears);
 
       // Generate all years in range
       const allYearsInRange = Array.from(
-        { length: yearRange[1] - yearRange[0] + 1 },
-        (_, i) => yearRange[0] + i
+        { length: rangeEnd - rangeStart + 1 },
+        (_, i) => rangeStart + i
       );
 
       const points = allYearsInRange.map(year => {
         const yearStr = year.toString();
         let count = 0;
-        if (gender === 'All') {
+
+        if (isRegex && matches) {
+          // For regex matches, sum up all matching names
+          matches.forEach(matchName => {
+            const maleCount = data[matchName]?.M?.[yearStr] || 0;
+            const femaleCount = data[matchName]?.F?.[yearStr] || 0;
+            count += maleCount + femaleCount;
+          });
+        } else if (gender === 'All') {
           count = (data[name]?.M?.[yearStr] || 0) + (data[name]?.F?.[yearStr] || 0);
         } else {
           count = data[name]?.[gender]?.[yearStr] || 0;
@@ -79,10 +107,10 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
           y: count,
           label: count.toLocaleString()
         };
-      });
+      }).filter(point => point.y > 0 || point.label === '< 5');
 
       return {
-        label: `${name} (${gender})`,
+        label: isRegex ? `${name} (${matches?.join(', ')})` : `${name} (${gender})`,
         data: points,
         borderColor: `hsl(${(index * 137.5 + 200) % 360}, 70%, 50%)`,
         backgroundColor: `hsla(${(index * 137.5 + 200) % 360}, 70%, 50%, 0.5)`,
@@ -96,6 +124,12 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
       datasets,
     };
   }, [data, selectedNames, yearRange]);
+
+  const handleResetZoom = () => {
+    if (chartRef.current) {
+      chartRef.current.resetZoom();
+    }
+  };
 
   const options: ChartOptions<'line'> = {
     responsive: true,
@@ -114,8 +148,8 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
             size: 14,
           },
         },
-        min: yearRange[0],
-        max: yearRange[1],
+        min: Math.min(...chartData.datasets.flatMap(d => d.data.map(p => p.x))),
+        max: Math.max(...chartData.datasets.flatMap(d => d.data.map(p => p.x))),
         ticks: {
           callback: function(tickValue) {
             return tickValue.toString();
@@ -180,6 +214,35 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
           },
         },
       },
+      zoom: {
+        pan: {
+          enabled: true,
+          mode: 'x',
+          modifierKey: 'shift',
+        },
+        zoom: {
+          wheel: {
+            enabled: true,
+            modifierKey: 'ctrl',
+          },
+          pinch: {
+            enabled: true
+          },
+          mode: 'x',
+          drag: {
+            enabled: true,
+            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+            borderColor: 'rgba(0, 0, 0, 0.2)',
+            borderWidth: 1,
+          },
+        },
+        limits: {
+          x: {
+            min: 1880,
+            max: 2022,
+          }
+        }
+      }
     },
   };
 
@@ -189,7 +252,20 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
       height: '100%',
       position: 'relative'
     }}>
-      <Line data={chartData} options={options} />
+      <Group justify="space-between" style={{ marginBottom: '8px' }}>
+        <Text size="sm" c="dimmed">
+          Hold Ctrl + scroll to zoom • Hold Shift + drag to pan • Drag to select area
+        </Text>
+        <Button
+          variant="light"
+          size="xs"
+          onClick={handleResetZoom}
+          style={{ minWidth: '80px' }}
+        >
+          Reset Zoom
+        </Button>
+      </Group>
+      <Line ref={chartRef} data={chartData} options={options} />
     </div>
   );
 } 

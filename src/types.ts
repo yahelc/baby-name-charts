@@ -8,6 +8,8 @@ export interface NameData {
 export interface NameSelection {
   name: string;
   gender: 'M' | 'F' | 'All';
+  isRegex?: boolean;
+  matches?: string[];
 }
 
 export interface ChartData {

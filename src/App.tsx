@@ -1,9 +1,8 @@
-import { MantineProvider, Button, Group, Text } from '@mantine/core';
+import { MantineProvider, Button, Group } from '@mantine/core';
 import { useState, useEffect } from 'react';
 import type { NameData, NameSelection } from './types';
 import NameSearch from './components/NameSearch';
 import NameChart from './components/NameChart';
-import YearRangeSlider from './components/YearRangeSlider';
 
 interface ChunkInfo {
   filename: string;
@@ -18,8 +17,6 @@ interface Manifest {
 function App() {
   const [data, setData] = useState<NameData | null>(null);
   const [selectedNames, setSelectedNames] = useState<NameSelection[]>([]);
-  const [yearRange, setYearRange] = useState<[number, number]>([1880, 2022]);
-  const [availableYearRange, setAvailableYearRange] = useState<[number, number]>([1880, 2022]);
   const [copySuccess, setCopySuccess] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -32,9 +29,6 @@ function App() {
       const state = JSON.parse(decodeURIComponent(hash));
       if (state.names && Array.isArray(state.names)) {
         setSelectedNames(state.names);
-      }
-      if (state.yearRange && Array.isArray(state.yearRange) && state.yearRange.length === 2) {
-        setYearRange(state.yearRange);
       }
       // Clear the hash after loading
       window.history.replaceState(null, '', window.location.pathname);
@@ -98,8 +92,7 @@ function App() {
 
   const handleCopyLink = async () => {
     const state = {
-      names: selectedNames,
-      yearRange: yearRange
+      names: selectedNames
     };
     const hash = encodeURIComponent(JSON.stringify(state));
     const url = `${window.location.origin}${window.location.pathname}#${hash}`;
@@ -112,48 +105,8 @@ function App() {
     }
   };
 
-  // Update available year range when names are selected
-  useEffect(() => {
-    if (!data || selectedNames.length === 0) {
-      setAvailableYearRange([1880, 2022]);
-      return;
-    }
-
-    let minYear = 2022;
-    let maxYear = 1880;
-
-    selectedNames.forEach(({ name, gender }) => {
-      if (gender === 'All' || gender === 'M') {
-        const years = Object.keys(data[name]?.M || {});
-        if (years.length > 0) {
-          minYear = Math.min(minYear, ...years.map(Number));
-          maxYear = Math.max(maxYear, ...years.map(Number));
-        }
-      }
-      if (gender === 'All' || gender === 'F') {
-        const years = Object.keys(data[name]?.F || {});
-        if (years.length > 0) {
-          minYear = Math.min(minYear, ...years.map(Number));
-          maxYear = Math.max(maxYear, ...years.map(Number));
-        }
-      }
-    });
-
-    setAvailableYearRange([minYear, maxYear]);
-    
-    // If current year range is outside available range, adjust it
-    if (yearRange[0] < minYear || yearRange[1] > maxYear) {
-      setYearRange([minYear, maxYear]);
-    }
-  }, [selectedNames, data]);
-
   const handleClear = () => {
     setSelectedNames([]);
-    setYearRange([1880, 2022]);
-  };
-
-  const handleYearRangeChange = (newRange: [number, number]) => {
-    setYearRange(newRange);
   };
 
   if (loading) {
@@ -226,17 +179,6 @@ function App() {
               onSelectionChange={setSelectedNames}
             />
           </div>
-          <div>
-            <YearRangeSlider
-              value={yearRange}
-              onChange={handleYearRangeChange}
-            />
-            {selectedNames.length > 0 && (
-              <Text size="xs" c="dimmed" style={{ marginTop: '0.25rem' }}>
-                Available data range: {availableYearRange[0]} - {availableYearRange[1]}
-              </Text>
-            )}
-          </div>
           <div style={{ 
             width: '100%',
             height: '50vh',
@@ -246,7 +188,7 @@ function App() {
             <NameChart
               data={data}
               selectedNames={selectedNames}
-              yearRange={yearRange}
+              yearRange={[1880, 2022]}
             />
           </div>
         </div>
