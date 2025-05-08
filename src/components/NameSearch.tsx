@@ -42,8 +42,14 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
     } else {
       // Regular name selection
       const name = value.split(' (')[0];
-      const gender = value.includes('(M)') ? 'M' : 'F';
-      
+      let gender: 'M' | 'F' | 'All' = 'M';
+      if (value.includes('(All)')) {
+        gender = 'All';
+      } else if (value.includes('(F)')) {
+        gender = 'F';
+      } else if (value.includes('(M)')) {
+        gender = 'M';
+      }
       onSelectionChange([
         ...selectedNames,
         { name, gender }
@@ -61,7 +67,7 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
 
     const searchLower = debouncedSearch.toLowerCase();
     const results: string[] = [];
-    let exactMatch: string | null = null;
+    let exactMatches: string[] = [];
 
     // If the search starts with /, treat it as a regex pattern
     if (debouncedSearch.startsWith('/')) {
@@ -80,12 +86,11 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
           results.push(debouncedSearch);
           // Show the matches as individual options
           matches.forEach(match => {
-            if (Object.keys(data[match].M).length > 0) {
-              results.push(`${match} (M)`);
-            }
-            if (Object.keys(data[match].F).length > 0) {
-              results.push(`${match} (F)`);
-            }
+            const hasM = Object.keys(data[match].M).length > 0;
+            const hasF = Object.keys(data[match].F).length > 0;
+            if (hasM) results.push(`${match} (M)`);
+            if (hasF) results.push(`${match} (F)`);
+            if (hasM && hasF) results.push(`${match} (All)`);
           });
         }
       } catch (e) {
@@ -97,26 +102,22 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
 
     // Regular name search
     Object.entries(data).forEach(([name, genderData]) => {
+      const hasM = Object.keys(genderData.M).length > 0;
+      const hasF = Object.keys(genderData.F).length > 0;
       if (name.toLowerCase() === searchLower) {
-        if (Object.keys(genderData.M).length > 0) {
-          exactMatch = `${name} (M)`;
-        }
-        if (Object.keys(genderData.F).length > 0) {
-          exactMatch = exactMatch ? exactMatch : `${name} (F)`;
-        }
+        if (hasM) exactMatches.push(`${name} (M)`);
+        if (hasF) exactMatches.push(`${name} (F)`);
+        if (hasM && hasF) exactMatches.push(`${name} (All)`);
       } else if (name.toLowerCase().includes(searchLower)) {
-        if (Object.keys(genderData.M).length > 0) {
-          results.push(`${name} (M)`);
-        }
-        if (Object.keys(genderData.F).length > 0) {
-          results.push(`${name} (F)`);
-        }
+        if (hasM) results.push(`${name} (M)`);
+        if (hasF) results.push(`${name} (F)`);
+        if (hasM && hasF) results.push(`${name} (All)`);
       }
     });
 
-    // Place the exact match at the top if found
-    if (exactMatch) {
-      results.unshift(exactMatch);
+    // Place all exact matches at the top
+    if (exactMatches.length > 0) {
+      results.unshift(...exactMatches);
     }
 
     return results;
