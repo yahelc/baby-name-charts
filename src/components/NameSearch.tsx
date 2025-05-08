@@ -61,6 +61,7 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
 
     const searchLower = debouncedSearch.toLowerCase();
     const results: string[] = [];
+    let exactMatch: string | null = null;
 
     // If the search starts with /, treat it as a regex pattern
     if (debouncedSearch.startsWith('/')) {
@@ -96,7 +97,14 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
 
     // Regular name search
     Object.entries(data).forEach(([name, genderData]) => {
-      if (name.toLowerCase().includes(searchLower)) {
+      if (name.toLowerCase() === searchLower) {
+        if (Object.keys(genderData.M).length > 0) {
+          exactMatch = `${name} (M)`;
+        }
+        if (Object.keys(genderData.F).length > 0) {
+          exactMatch = exactMatch ? exactMatch : `${name} (F)`;
+        }
+      } else if (name.toLowerCase().includes(searchLower)) {
         if (Object.keys(genderData.M).length > 0) {
           results.push(`${name} (M)`);
         }
@@ -106,7 +114,12 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
       }
     });
 
-    return results.slice(0, 10);
+    // Place the exact match at the top if found
+    if (exactMatch) {
+      results.unshift(exactMatch);
+    }
+
+    return results;
   }, [data, debouncedSearch]);
 
   return (
