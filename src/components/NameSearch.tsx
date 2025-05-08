@@ -121,6 +121,7 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
             border: '1px solid var(--mantine-color-gray-3)',
             backgroundColor: 'white',
+            width: '200%',
           },
           option: {
             padding: '8px 12px',
@@ -142,19 +143,8 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
           <InputBase
             value={searchValue}
             onChange={(event) => {
-              const value = event.currentTarget.value;
-              setSearchValue(value);
-              if (value.startsWith('/') && value.endsWith('/')) {
-                try {
-                  const pattern = value.slice(1, -1);
-                  new RegExp(pattern, 'i');
-                  combobox.openDropdown();
-                } catch (e) {
-                  // Invalid regex, don't open dropdown
-                }
-              } else {
-                combobox.openDropdown();
-              }
+              setSearchValue(event.currentTarget.value);
+              combobox.openDropdown();
             }}
             onClick={() => combobox.openDropdown()}
             onFocus={() => combobox.openDropdown()}
@@ -173,7 +163,7 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
 
         <Combobox.Dropdown>
           <Combobox.Options>
-            {autocompleteData.length === 0 ? (
+            {autocompleteData.length === 0 && searchValue.length > 1 && !(searchValue.length === 1 && searchValue === '/') ? (
               <Combobox.Empty style={{ padding: '12px', color: 'var(--mantine-color-gray-6)' }}>
                 No results found
               </Combobox.Empty>

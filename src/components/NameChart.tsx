@@ -180,6 +180,7 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
             size: 12
           }
         },
+        suggestedMax: 10,
       },
     },
     plugins: {
