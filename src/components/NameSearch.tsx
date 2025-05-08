@@ -113,7 +113,7 @@ export default function NameSearch({ data, selectedNames, onSelectionChange, onR
         if (hasM) exactMatches.push(`${name} (M)`);
         if (hasF) exactMatches.push(`${name} (F)`);
         if (hasM && hasF) exactMatches.push(`${name} (All)`);
-      } else if (name.toLowerCase().includes(searchLower)) {
+      } else if (name.toLowerCase().startsWith(searchLower)) {
         if (hasM) results.push(`${name} (M)`);
         if (hasF) results.push(`${name} (F)`);
         if (hasM && hasF) results.push(`${name} (All)`);
