@@ -7,9 +7,10 @@ interface NameSearchProps {
   data: NameData;
   selectedNames: NameSelection[];
   onSelectionChange: (names: NameSelection[]) => void;
+  onRemoveName?: (index: number) => void;
 }
 
-export default function NameSearch({ data, selectedNames, onSelectionChange }: NameSearchProps) {
+export default function NameSearch({ data, selectedNames, onSelectionChange, onRemoveName }: NameSearchProps) {
   const [searchValue, setSearchValue] = useState('');
   const [debouncedSearch] = useDebouncedValue(searchValue, 300);
 
@@ -59,8 +60,12 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
   }, [data, selectedNames, onSelectionChange]);
 
   const handleRemoveName = useCallback((index: number) => {
-    onSelectionChange(selectedNames.filter((_, i) => i !== index));
-  }, [selectedNames, onSelectionChange]);
+    if (onRemoveName) {
+      onRemoveName(index);
+    } else {
+      onSelectionChange(selectedNames.filter((_, i) => i !== index));
+    }
+  }, [selectedNames, onSelectionChange, onRemoveName]);
 
   const searchData = useMemo(() => {
     if (!debouncedSearch) return [];

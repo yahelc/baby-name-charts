@@ -1,5 +1,5 @@
 import { Button, Group, useMantineTheme, useMantineColorScheme } from '@mantine/core';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { NameData, NameSelection } from './types';
 import NameSearch from './components/NameSearch';
 import NameChart from './components/NameChart';
@@ -21,6 +21,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const { colorScheme } = useMantineColorScheme();
   const theme = useMantineTheme();
+  const nameChartRef = useRef<any>(null);
 
   // Load state from URL on mount
   useEffect(() => {
@@ -108,7 +109,17 @@ function App() {
   };
 
   const handleClear = () => {
+    if (nameChartRef.current) {
+      nameChartRef.current.clearTooltip();
+    }
     setSelectedNames([]);
+  };
+
+  const handleRemoveName = (index: number) => {
+    if (nameChartRef.current) {
+      nameChartRef.current.clearTooltip();
+    }
+    setSelectedNames(selectedNames.filter((_, i) => i !== index));
   };
 
   if (loading) {
@@ -170,6 +181,7 @@ function App() {
               data={data} 
               selectedNames={selectedNames}
               onSelectionChange={setSelectedNames}
+              onRemoveName={handleRemoveName}
             />
           </div>
         </div>
@@ -180,6 +192,7 @@ function App() {
           maxHeight: '600px'
         }}>
           <NameChart
+            ref={nameChartRef}
             data={data}
             selectedNames={selectedNames}
             yearRange={[1880, 2022]}

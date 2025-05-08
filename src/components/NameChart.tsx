@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, useImperativeHandle, forwardRef } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -32,9 +32,14 @@ interface NameChartProps {
   yearRange: [number, number];
 }
 
-export default function NameChart({ data, selectedNames, yearRange }: NameChartProps) {
+const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange }: NameChartProps, ref) {
   const chartRef = useRef<ChartJS<'line'>>(null);
   const [persistentTooltip, setPersistentTooltip] = useState<{datasetIndex: number, index: number, x: number, y: number, label: string, value: string} | null>(null);
+
+  // Expose a clearTooltip method to parent
+  useImperativeHandle(ref, () => ({
+    clearTooltip: () => setPersistentTooltip(null)
+  }), []);
 
   const chartData = useMemo(() => {
     const datasets = selectedNames.map(({ name, gender, isRegex, matches }, index) => {
@@ -478,4 +483,6 @@ export default function NameChart({ data, selectedNames, yearRange }: NameChartP
       </div>
     </div>
   );
-} 
+});
+
+export default NameChart; 
