@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { TextInput, Group, Text, ActionIcon, Paper, Box } from '@mantine/core';
+import { TextInput, Group, Text, ActionIcon, Paper, Box, useMantineTheme } from '@mantine/core';
 import type { NameData, NameSelection } from '../types';
 import { useDebouncedValue } from '@mantine/hooks';
 
@@ -12,6 +12,8 @@ interface NameSearchProps {
 export default function NameSearch({ data, selectedNames, onSelectionChange }: NameSearchProps) {
   const [searchValue, setSearchValue] = useState('');
   const [debouncedSearch] = useDebouncedValue(searchValue, 300);
+
+  const theme = useMantineTheme();
 
   const handleNameSelect = useCallback((value: string) => {
     if (!value) return;
@@ -108,67 +110,67 @@ export default function NameSearch({ data, selectedNames, onSelectionChange }: N
   }, [data, debouncedSearch]);
 
   return (
-    <div style={{ width: '100%' }}>
-      <div style={{ width: '100%', position: 'relative' }}>
-        <TextInput
-          value={searchValue}
-          onChange={(event) => setSearchValue(event.currentTarget.value)}
-          placeholder="Search for a name or use /regex/ pattern"
-          size="md"
-          radius="sm"
-          styles={{
-            input: {
-              width: '100%',
-              minWidth: '100%',
-            },
-            root: {
-              width: '100%',
-            },
+    <div style={{ width: '100%', position: 'relative' }}>
+      <TextInput
+        value={searchValue}
+        onChange={(event) => setSearchValue(event.currentTarget.value)}
+        placeholder="Search for a name or use /regex/ pattern"
+        size="md"
+        radius="sm"
+        styles={{
+          input: {
+            width: '100%',
+            minWidth: '100%',
+          },
+          root: {
+            width: '100%',
+          },
+        }}
+      />
+      {(searchValue || searchData.length > 0) && (
+        <Paper
+          shadow="sm"
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            maxHeight: '300px',
+            overflowY: 'auto',
+            border: '1px solid var(--mantine-color-gray-3)',
+            borderRadius: '4px',
+            backgroundColor: theme.colorScheme === 'dark' ? '#1a1b1e' : '#fff',
+            width: '100%',
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
           }}
-        />
-        
-        {searchValue && (
-          <Paper
-            shadow="sm"
-            style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              zIndex: 1000,
-              maxHeight: '300px',
-              overflowY: 'auto',
-              border: '1px solid var(--mantine-color-gray-3)',
-              borderRadius: '4px',
-              backgroundColor: 'white',
-              width: '100%',
-            }}
-          >
-            {searchData.length === 0 && searchValue.length > 1 && !(searchValue.length === 1 && searchValue === '/') ? (
-              <Box p="xs" c="dimmed">
-                No results found
+        >
+          {searchData.length === 0 && searchValue.length > 1 && !(searchValue.length === 1 && searchValue === '/') ? (
+            <Box p="xs" c="dimmed" style={{ backgroundColor: theme.colorScheme === 'dark' ? '#1a1b1e' : '#fff' }}>
+              No results found
+            </Box>
+          ) : (
+            searchData.map((item) => (
+              <Box
+                key={item}
+                p="xs"
+                style={{
+                  cursor: 'pointer',
+                  color: 'var(--mantine-color-text)',
+                  backgroundColor: theme.colorScheme === 'dark' ? '#1a1b1e' : '#fff',
+                  '&:hover': {
+                    backgroundColor: 'var(--mantine-color-default-hover)',
+                  },
+                }}
+                onClick={() => handleNameSelect(item)}
+              >
+                {item}
               </Box>
-            ) : (
-              searchData.map((item) => (
-                <Box
-                  key={item}
-                  p="xs"
-                  style={{
-                    cursor: 'pointer',
-                    '&:hover': {
-                      backgroundColor: 'var(--mantine-color-gray-0)',
-                    },
-                  }}
-                  onClick={() => handleNameSelect(item)}
-                >
-                  {item}
-                </Box>
-              ))
-            )}
-          </Paper>
-        )}
-      </div>
-
+            ))
+          )}
+        </Paper>
+      )}
       <Group gap="xs" mt="xs" style={{ flexWrap: 'wrap' }}>
         {selectedNames.map((selection, index) => (
           <div

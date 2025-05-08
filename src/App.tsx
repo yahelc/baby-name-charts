@@ -1,4 +1,4 @@
-import { MantineProvider, Button, Group } from '@mantine/core';
+import { Button, Group, useMantineTheme, useMantineColorScheme } from '@mantine/core';
 import { useState, useEffect } from 'react';
 import type { NameData, NameSelection } from './types';
 import NameSearch from './components/NameSearch';
@@ -19,6 +19,8 @@ function App() {
   const [selectedNames, setSelectedNames] = useState<NameSelection[]>([]);
   const [copySuccess, setCopySuccess] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { colorScheme } = useMantineColorScheme();
+  const theme = useMantineTheme();
 
   // Load state from URL on mount
   useEffect(() => {
@@ -118,84 +120,73 @@ function App() {
   }
 
   return (
-    <MantineProvider
-      theme={{
-        defaultRadius: 'sm',
-        primaryColor: 'blue',
-        components: {
-          Button: {
-            defaultProps: {
-              variant: 'light',
-            },
-          },
-        },
-      }}
-    >
-      <div style={{ 
+    <div
+      style={{
         padding: '10px',
         width: '100vw',
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        backgroundColor: 'white',
+        backgroundColor: colorScheme === 'dark' ? '#1a1b1e' : '#fff',
+        color: colorScheme === 'dark' ? '#fff' : '#1a1b1e',
         boxSizing: 'border-box',
-        overflow: 'hidden'
+        overflow: 'hidden',
+      }}
+    >
+      <div style={{ 
+        width: '100%',
+        maxWidth: '1200px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px'
       }}>
-        <div style={{ 
-          width: '100%',
-          maxWidth: '1200px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px'
-        }}>
-          <Group justify="space-between" style={{ flexWrap: 'wrap', gap: '10px' }}>
-            <h1 style={{ margin: 0, fontSize: 'clamp(1.5rem, 4vw, 2rem)' }}>Baby Name Trends</h1>
-            <Group gap="xs" style={{ flexWrap: 'wrap' }}>
-              <Button 
-                variant="outline" 
-                color={copySuccess ? "green" : "gray"}
-                onClick={handleCopyLink}
-                disabled={selectedNames.length === 0}
-                size="sm"
-              >
-                {copySuccess ? "Copied!" : "Copy Link"}
-              </Button>
-              <Button 
-                variant="outline" 
-                color="gray" 
-                onClick={handleClear}
-                disabled={selectedNames.length === 0}
-                size="sm"
-              >
-                Clear Selection
-              </Button>
-            </Group>
+        <Group justify="space-between" style={{ flexWrap: 'wrap', gap: '10px' }}>
+          <h1 style={{ margin: 0, fontSize: 'clamp(1.5rem, 4vw, 2rem)' }}>Baby Name Trends</h1>
+          <Group gap="xs" style={{ flexWrap: 'wrap' }}>
+            <Button 
+              variant="outline" 
+              color={copySuccess ? "green" : "gray"}
+              onClick={handleCopyLink}
+              disabled={selectedNames.length === 0}
+              size="sm"
+            >
+              {copySuccess ? "Copied!" : "Copy Link"}
+            </Button>
+            <Button 
+              variant="outline" 
+              color="gray" 
+              onClick={handleClear}
+              disabled={selectedNames.length === 0}
+              size="sm"
+            >
+              Clear Selection
+            </Button>
           </Group>
-          <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-            <div style={{ width: '100%', maxWidth: '800px' }}>
-              <NameSearch 
-                data={data} 
-                selectedNames={selectedNames}
-                onSelectionChange={setSelectedNames}
-              />
-            </div>
-          </div>
-          <div style={{ 
-            width: '100%',
-            height: '50vh',
-            minHeight: '300px',
-            maxHeight: '600px'
-          }}>
-            <NameChart
-              data={data}
+        </Group>
+        <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ width: '100%', maxWidth: '800px' }}>
+            <NameSearch 
+              data={data} 
               selectedNames={selectedNames}
-              yearRange={[1880, 2022]}
+              onSelectionChange={setSelectedNames}
             />
           </div>
         </div>
+        <div style={{ 
+          width: '100%',
+          height: '50vh',
+          minHeight: '300px',
+          maxHeight: '600px'
+        }}>
+          <NameChart
+            data={data}
+            selectedNames={selectedNames}
+            yearRange={[1880, 2022]}
+          />
+        </div>
       </div>
-    </MantineProvider>
+    </div>
   );
 }
 
