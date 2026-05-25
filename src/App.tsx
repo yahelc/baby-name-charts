@@ -311,7 +311,7 @@ function App() {
         {/* Footer */}
         <footer style={{
           width: '100%',
-          marginTop: 300,
+          marginTop: 24,
           padding: '24px 0 8px 0',
           textAlign: 'center',
           borderTop: '1px solid #eee',

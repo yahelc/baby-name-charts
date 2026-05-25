@@ -8,12 +8,13 @@ import {
   Title,
   Tooltip,
   Legend,
+  type Plugin,
 } from 'chart.js';
 import type { ChartOptions, Chart as ChartType } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import type { NameData, NameSelection } from '../types';
-import { Group, Button, Text } from '@mantine/core';
+import { Group, Button, Text, useMantineColorScheme } from '@mantine/core';
 
 ChartJS.register(
   CategoryScale,
@@ -26,6 +27,83 @@ ChartJS.register(
   zoomPlugin
 );
 
+type DataPoint = { x: number; y: number | null; label: string };
+
+// Draws series labels at the rightmost visible data point for each line,
+// replacing the legend box. Resolves vertical collisions by nudging labels down.
+const directLabelPlugin: Plugin<'line'> = {
+  id: 'directLabel',
+  afterDraw(chart) {
+    const { ctx, chartArea, data } = chart;
+    if (!chartArea) return;
+
+    type LabelInfo = { targetY: number; y: number; label: string; color: string };
+    const collected: LabelInfo[] = [];
+
+    data.datasets.forEach((dataset, datasetIndex) => {
+      const meta = chart.getDatasetMeta(datasetIndex);
+      if (meta.hidden) return;
+
+      for (let i = meta.data.length - 1; i >= 0; i--) {
+        const raw = dataset.data[i] as DataPoint;
+        if (raw?.y == null) continue;
+
+        const pt = meta.data[i] as unknown as { x: number; y: number };
+        if (pt.x < chartArea.left - 1 || pt.x > chartArea.right + 1) continue;
+        if (pt.y < chartArea.top - 1 || pt.y > chartArea.bottom + 1) continue;
+
+        const text = dataset.label || '';
+        collected.push({
+          targetY: pt.y,
+          y: pt.y,
+          label: text.length > 28 ? text.slice(0, 26) + '…' : text,
+          color: dataset.borderColor as string,
+        });
+        break;
+      }
+    });
+
+    if (collected.length === 0) return;
+
+    collected.sort((a, b) => a.y - b.y);
+
+    const LINE_HEIGHT = 14;
+    for (let i = 1; i < collected.length; i++) {
+      if (collected[i].y < collected[i - 1].y + LINE_HEIGHT) {
+        collected[i].y = collected[i - 1].y + LINE_HEIGHT;
+      }
+    }
+    for (let i = collected.length - 1; i >= 0; i--) {
+      if (collected[i].y > chartArea.bottom) collected[i].y = chartArea.bottom;
+    }
+
+    const lx = chartArea.right + 8;
+
+    ctx.save();
+    ctx.font = '11px system-ui, Avenir, Helvetica, Arial, sans-serif';
+    ctx.textAlign = 'left';
+
+    collected.forEach(({ y, targetY, label, color }) => {
+      if (Math.abs(y - targetY) > 4) {
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = 0.3;
+        ctx.lineWidth = 0.75;
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath();
+        ctx.moveTo(chartArea.right + 2, targetY);
+        ctx.lineTo(lx - 2, y + 3);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+      }
+      ctx.fillStyle = color;
+      ctx.fillText(label, lx, y + 4);
+    });
+
+    ctx.restore();
+  },
+};
+
 interface NameChartProps {
   data: NameData;
   selectedNames: NameSelection[];
@@ -34,7 +112,9 @@ interface NameChartProps {
 
 const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange }: NameChartProps, ref) {
   const chartRef = useRef<ChartJS<'line'>>(null);
-  // Store data coordinates (dataX, dataY) and recalculate pixel position on render
+  const { colorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === 'dark';
+
   const [persistentTooltip, setPersistentTooltip] = useState<
     | null
     | {
@@ -47,59 +127,42 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
       }
   >(null);
 
-  // Expose a clearTooltip method to parent
   useImperativeHandle(ref, () => ({
     clearTooltip: () => setPersistentTooltip(null)
   }), []);
 
   const chartData = useMemo(() => {
     const datasets = selectedNames.map(({ name, gender, isRegex, matches }, index) => {
-      // Get all available years for this name
       const allYears = new Set<string>();
-      
+
       if (isRegex && matches) {
-        // For regex matches, combine data from all matching names
         matches.forEach(matchName => {
-          const maleYears = Object.keys(data[matchName]?.M || {});
-          const femaleYears = Object.keys(data[matchName]?.F || {});
-          maleYears.forEach(year => allYears.add(year));
-          femaleYears.forEach(year => allYears.add(year));
+          Object.keys(data[matchName]?.M || {}).forEach(y => allYears.add(y));
+          Object.keys(data[matchName]?.F || {}).forEach(y => allYears.add(y));
         });
       } else {
-        // Regular name selection
         if (gender === 'All' || gender === 'M') {
-          Object.keys(data[name]?.M || {}).forEach(year => allYears.add(year));
+          Object.keys(data[name]?.M || {}).forEach(y => allYears.add(y));
         }
         if (gender === 'All' || gender === 'F') {
-          Object.keys(data[name]?.F || {}).forEach(year => allYears.add(year));
+          Object.keys(data[name]?.F || {}).forEach(y => allYears.add(y));
         }
       }
 
-      // Find the first year this name appears (across all years, not just the range)
-      const firstYear = Array.from(allYears).length > 0 
+      const firstYear = allYears.size > 0
         ? Math.min(...Array.from(allYears).map(Number))
         : Math.min(yearRange[0], yearRange[1]);
 
-      // Sort years and filter by range
       const [rangeStart, rangeEnd] = [Math.min(yearRange[0], yearRange[1]), Math.max(yearRange[0], yearRange[1])];
+      const allYearsInRange = Array.from({ length: rangeEnd - rangeStart + 1 }, (_, i) => rangeStart + i);
 
-
-      // Generate all years in range
-      const allYearsInRange = Array.from(
-        { length: rangeEnd - rangeStart + 1 },
-        (_, i) => rangeStart + i
-      );
-
-      const points = allYearsInRange.map(year => {
+      const points: DataPoint[] = allYearsInRange.map(year => {
         const yearStr = year.toString();
         let count = 0;
 
         if (isRegex && matches) {
-          // For regex matches, sum up all matching names
           matches.forEach(matchName => {
-            const maleCount = data[matchName]?.M?.[yearStr] || 0;
-            const femaleCount = data[matchName]?.F?.[yearStr] || 0;
-            count += maleCount + femaleCount;
+            count += (data[matchName]?.M?.[yearStr] || 0) + (data[matchName]?.F?.[yearStr] || 0);
           });
         } else if (gender === 'All') {
           count = (data[name]?.M?.[yearStr] || 0) + (data[name]?.F?.[yearStr] || 0);
@@ -107,58 +170,45 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
           count = data[name]?.[gender]?.[yearStr] || 0;
         }
 
-        // If this year is after the first appearance but has no data, show "< 5"
+        // Years after first appearance with no SSA data: render as a gap, not a false zero
         if (year >= firstYear && count === 0) {
-          return {
-            x: year,
-            y: 0,
-            label: '< 5'
-          };
+          return { x: year, y: null, label: '< 5' };
         }
 
-        return {
-          x: year,
-          y: count,
-          label: count.toLocaleString()
-        };
-      }).filter(point => point.y > 0 || point.label === '< 5');
+        return { x: year, y: count, label: count.toLocaleString() };
+      }).filter(point => point.y !== null ? point.y > 0 : true);
 
+      const hue = (index * 137.5 + 200) % 360;
       return {
         label: isRegex ? `${name} (${matches?.join(', ')})` : `${name} (${gender})`,
-        data: points,
-        borderColor: `hsl(${(index * 137.5 + 200) % 360}, 70%, 50%)`,
-        backgroundColor: `hsla(${(index * 137.5 + 200) % 360}, 70%, 50%, 0.5)`,
-        tension: 0.1,
-        pointRadius: 3,
-        pointHoverRadius: 5,
+        data: points as unknown as import('chart.js').Point[],
+        borderColor: `hsl(${hue}, 70%, 50%)`,
+        backgroundColor: `hsla(${hue}, 70%, 50%, 0)`,
+        tension: 0,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHitRadius: 10,
+        fill: false,
       };
     });
 
-    return {
-      datasets,
-    };
+    return { datasets };
   }, [data, selectedNames, yearRange]);
 
   const handleResetZoom = () => {
-    if (chartRef.current) {
-      chartRef.current.resetZoom();
-    }
+    if (chartRef.current) chartRef.current.resetZoom();
   };
 
-  // Helper to draw the persistent tooltip on the canvas
   const drawTooltipOnCanvas = (chart: ChartJS<'line'>, tooltip: typeof persistentTooltip) => {
     if (!chart || !tooltip) return;
     const ctx = chart.ctx;
     ctx.save();
-    // Tooltip box
     const boxWidth = 120;
     const boxHeight = 36;
-    // Recalculate pixel position from data coordinates
     const xScale = chart.scales.x;
     const yScale = chart.scales.y;
     const x = xScale.getPixelForValue(tooltip.dataX) + 12;
     const y = yScale.getPixelForValue(tooltip.dataY) - boxHeight / 2;
-    // Draw background
     ctx.globalAlpha = 0.95;
     ctx.fillStyle = '#212529';
     ctx.strokeStyle = '#222';
@@ -172,7 +222,6 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     ctx.fill();
     ctx.stroke();
     ctx.globalAlpha = 1;
-    // Draw triangle pointer
     ctx.beginPath();
     ctx.moveTo(x - 4, y + boxHeight / 2 - 4);
     ctx.lineTo(x - 12, y + boxHeight / 2);
@@ -182,12 +231,11 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     ctx.fill();
     ctx.strokeStyle = '#222';
     ctx.stroke();
-    // Year text
+    const pt = chartData.datasets[tooltip.datasetIndex].data[tooltip.index] as unknown as DataPoint;
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 12px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(`Year: ${chartData.datasets[tooltip.datasetIndex].data[tooltip.index].x}`, x + 10, y + 14);
-    // Color dot
+    ctx.fillText(`Year: ${pt.x}`, x + 10, y + 14);
     ctx.beginPath();
     ctx.arc(x + 12, y + 26, 4, 0, 2 * Math.PI);
     ctx.fillStyle = chartData.datasets[tooltip.datasetIndex].borderColor as string;
@@ -195,19 +243,17 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    // Label and value
     ctx.fillStyle = '#fff';
     ctx.font = '12px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(
-      `${chartData.datasets[tooltip.datasetIndex].label}: ${chartData.datasets[tooltip.datasetIndex].data[tooltip.index].label}`,
+      `${chartData.datasets[tooltip.datasetIndex].label}: ${pt.label}`,
       x + 22,
       y + 29
     );
     ctx.restore();
   };
 
-  // Helper to clear the tooltip area after export
   const clearTooltipOnCanvas = (chart: ChartJS<'line'>, tooltip: typeof persistentTooltip) => {
     if (!chart || !tooltip) return;
     const ctx = chart.ctx;
@@ -225,55 +271,49 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
 
   const handleDownloadChart = () => {
     if (chartRef.current) {
-      // Fill background with white before drawing chart and tooltip
       const ctx = chartRef.current.ctx;
       ctx.save();
       ctx.globalCompositeOperation = 'destination-over';
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, chartRef.current.width, chartRef.current.height);
       ctx.restore();
-      if (persistentTooltip) {
-        drawTooltipOnCanvas(chartRef.current, persistentTooltip);
-      }
+      if (persistentTooltip) drawTooltipOnCanvas(chartRef.current, persistentTooltip);
       const link = document.createElement('a');
       link.download = 'baby-name-trends.png';
       link.href = chartRef.current.toBase64Image();
       link.click();
-      if (persistentTooltip) {
-        clearTooltipOnCanvas(chartRef.current, persistentTooltip);
-      }
+      if (persistentTooltip) clearTooltipOnCanvas(chartRef.current, persistentTooltip);
     }
   };
 
   const handleCopyChart = async () => {
     if (chartRef.current) {
-      if (persistentTooltip) {
-        drawTooltipOnCanvas(chartRef.current, persistentTooltip);
-      }
+      if (persistentTooltip) drawTooltipOnCanvas(chartRef.current, persistentTooltip);
       try {
         const blob = await fetch(chartRef.current.toBase64Image()).then(r => r.blob());
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            'image/png': blob
-          })
-        ]);
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       } catch (err) {
         console.error('Failed to copy chart:', err);
       }
-      if (persistentTooltip) {
-        clearTooltipOnCanvas(chartRef.current, persistentTooltip);
-      }
+      if (persistentTooltip) clearTooltipOnCanvas(chartRef.current, persistentTooltip);
     }
   };
 
-  // Custom external tooltip handler
-  const externalTooltipHandler = () => {
-    // We do not render the tooltip here, we use React below
-  };
+  const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
+  const tickColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)';
+
+  const allDataX = chartData.datasets.flatMap(d =>
+    (d.data as unknown as DataPoint[]).filter(p => p.y !== null).map(p => p.x)
+  );
+  const xMin = allDataX.reduce((min, x) => Math.min(min, x), yearRange[0]);
+  const xMax = allDataX.reduce((max, x) => Math.max(max, x), yearRange[1]);
 
   const options: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
+    layout: {
+      padding: { right: 120 },
+    },
     interaction: {
       mode: 'index',
       intersect: false,
@@ -281,81 +321,51 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     scales: {
       x: {
         type: 'linear',
-        title: {
-          display: true,
-          text: 'Year',
-          font: {
-            size: 14,
-          },
-        },
-        min: Math.min(...chartData.datasets.flatMap(d => d.data.map(p => p.x))),
-        max: Math.max(...chartData.datasets.flatMap(d => d.data.map(p => p.x))),
+        border: { display: false },
+        grid: { color: gridColor },
+        title: { display: false },
+        min: xMin,
+        max: xMax,
         ticks: {
-          callback: function(tickValue) {
-            if (Number.isInteger(tickValue)) {
-              return tickValue.toString();
-            }
-            return '';
-          },
+          callback: (v) => Number.isInteger(v as number) ? (v as number).toString() : '',
           stepSize: 1,
           autoSkip: true,
           maxRotation: 0,
-          font: {
-            size: 12
-          }
+          font: { size: 12 },
+          color: tickColor,
         },
-        display: true,
       },
       y: {
         beginAtZero: true,
+        border: { display: false },
+        grid: { color: gridColor },
         title: {
           display: true,
-          text: 'Number of Babies',
-          font: {
-            size: 14,
-          },
+          text: 'Births',
+          font: { size: 13 },
+          color: tickColor,
         },
         ticks: {
-          callback: function(tickValue) {
-            return tickValue.toLocaleString();
-          },
-          font: {
-            size: 12
-          }
+          callback: (v) => Number(v).toLocaleString(),
+          font: { size: 12 },
+          color: tickColor,
         },
         suggestedMax: 10,
       },
     },
     plugins: {
-      legend: {
-        position: 'top',
-        labels: {
-          boxWidth: 12,
-          padding: 8,
-          font: {
-            size: 12
-          }
-        }
-      },
-      title: {
-        display: true,
-        text: 'Baby Name Trends Over Time',
-        font: {
-          size: 16,
-        },
-      },
+      legend: { display: false },
+      title: { display: false },
       tooltip: {
         enabled: true,
-        external: externalTooltipHandler,
         mode: 'index',
         intersect: false,
         callbacks: {
-          title: (context) => {
-            return `Year: ${context[0].parsed.x}`;
-          },
+          title: (context) => `Year: ${context[0].parsed.x}`,
           label: (context) => {
             const label = context.dataset.label || '';
-            const point = context.dataset.data[context.dataIndex] as { label?: string };
+            const point = context.dataset.data[context.dataIndex] as unknown as DataPoint;
+            if (point.y === null) return `${label}: < 5`;
             return `${label}: ${point.label || context.parsed.y.toLocaleString()}`;
           },
         },
@@ -367,32 +377,21 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
           modifierKey: 'shift',
         },
         zoom: {
-          wheel: {
-            enabled: true,
-            modifierKey: 'ctrl',
-          },
-          pinch: {
-            enabled: true
-          },
+          wheel: { enabled: true, modifierKey: 'ctrl' },
+          pinch: { enabled: true },
           mode: 'x',
           drag: {
             enabled: true,
-            backgroundColor: 'rgba(0, 0, 0, 0.1)',
-            borderColor: 'rgba(0, 0, 0, 0.2)',
+            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+            borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
             borderWidth: 1,
           },
         },
-        limits: {
-          x: {
-            min: 1880,
-            max: 2022,
-          }
-        }
-      }
+        limits: { x: { min: 1880, max: 2022 } },
+      },
     },
   };
 
-  // Click handler for persistent tooltip
   const handleChartClick = (event: any, chart?: ChartType<'line'>) => {
     const chartInstance = chart || chartRef.current;
     if (!chartInstance) return;
@@ -407,13 +406,13 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
         dataX = pointAny.$context.parsed.x;
         dataY = pointAny.$context.parsed.y;
       } else {
-        // fallback: use dataset data
-        const d = chartData.datasets[datasetIndex].data[index] as any;
+        const d = chartData.datasets[datasetIndex].data[index] as unknown as DataPoint;
         dataX = d.x;
-        dataY = d.y;
+        dataY = d.y ?? 0;
       }
       const label = chartData.datasets[datasetIndex].label || '';
-      const value = chartData.datasets[datasetIndex].data[index].label || '';
+      const pt = chartData.datasets[datasetIndex].data[index] as unknown as DataPoint;
+      const value = pt.label || '';
       if (
         persistentTooltip &&
         persistentTooltip.datasetIndex === datasetIndex &&
@@ -427,33 +426,30 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
   };
 
   return (
-    <div style={{ 
-      width: '100%', 
-      height: '100%',
-      position: 'relative'
-    }}>
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <Group justify="space-between" style={{ marginBottom: '8px' }}>
         <Text size="sm" c="dimmed">
           Hold Ctrl + scroll to zoom • Hold Shift + drag to pan • Drag to select area
         </Text>
-        <Button
-          variant="light"
-          size="xs"
-          onClick={handleResetZoom}
-          style={{ minWidth: '80px' }}
-        >
+        <Button variant="light" size="xs" onClick={handleResetZoom} style={{ minWidth: '80px' }}>
           Reset Zoom
         </Button>
       </Group>
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-        <Line ref={chartRef} data={chartData} options={options} onClick={handleChartClick} />
+        <Line
+          ref={chartRef}
+          data={chartData}
+          options={options}
+          plugins={[directLabelPlugin]}
+          onClick={handleChartClick}
+        />
         {persistentTooltip && chartRef.current && (() => {
-          // Recalculate pixel position from data coordinates
           const chart = chartRef.current;
           const xScale = chart.scales.x;
           const yScale = chart.scales.y;
           const px = xScale.getPixelForValue(persistentTooltip.dataX);
           const py = yScale.getPixelForValue(persistentTooltip.dataY);
+          const pt = chartData.datasets[persistentTooltip.datasetIndex].data[persistentTooltip.index] as unknown as DataPoint;
           return (
             <div
               style={{
@@ -477,12 +473,11 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
                 gap: 2,
               }}
             >
-              {/* Triangle pointer */}
               <svg width="16" height="16" style={{ position: 'absolute', left: -16, top: 13, pointerEvents: 'none' }}>
                 <polygon points="16,4 0,8 16,12" fill="#212529" stroke="#222" strokeWidth="1" />
               </svg>
               <div style={{ fontSize: 11, opacity: 0.85, marginBottom: 1 }}>
-                Year: <b>{chartData.datasets[persistentTooltip.datasetIndex].data[persistentTooltip.index].x}</b>
+                Year: <b>{pt.x}</b>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span
@@ -506,22 +501,10 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
         <Group gap="xs">
-          <Button
-            variant="light"
-            size="xs"
-            onClick={handleDownloadChart}
-            style={{ minWidth: '80px' }}
-            leftSection="💾 "
-          >
+          <Button variant="light" size="xs" onClick={handleDownloadChart} style={{ minWidth: '80px' }}>
             Download
           </Button>
-          <Button
-            variant="light"
-            size="xs"
-            onClick={handleCopyChart}
-            style={{ minWidth: '80px' }}
-            leftSection="🖼️ "
-          >
+          <Button variant="light" size="xs" onClick={handleCopyChart} style={{ minWidth: '80px' }}>
             Copy
           </Button>
         </Group>
@@ -530,4 +513,4 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
   );
 });
 
-export default NameChart; 
+export default NameChart;
