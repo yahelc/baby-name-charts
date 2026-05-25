@@ -328,7 +328,7 @@ function App() {
             </a>
           </div>
           <div style={{ fontSize: 14, color: '#aaa' }}>
-            by Yahel Carmon | Data courtesy of the <a href="https://www.ssa.gov/oact/babynames/limits.html" target="blank"></a>Social Security Administration</a>
+            by Yahel Carmon | Data courtesy of the <a href="https://www.ssa.gov/oact/babynames/limits.html" target="_blank">Social Security Administration</a>
           </div>
         </footer>
       </div>
