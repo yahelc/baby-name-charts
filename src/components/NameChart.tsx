@@ -29,6 +29,28 @@ ChartJS.register(
 
 type DataPoint = { x: number; y: number | null; label: string };
 
+const PALETTE = [
+  'hsl(211, 60%, 48%)',
+  'hsl(27, 65%, 48%)',
+  'hsl(150, 50%, 38%)',
+  'hsl(340, 55%, 48%)',
+  'hsl(262, 45%, 52%)',
+  'hsl(185, 55%, 38%)',
+  'hsl(0, 55%, 48%)',
+  'hsl(45, 65%, 42%)',
+];
+
+const EVENTS = [
+  { year: 1918, label: 'WWI ends' },
+  { year: 1929, label: 'Depression' },
+  { year: 1941, label: 'WWII' },
+  { year: 1945, label: 'WWII ends' },
+  { year: 1946, label: 'Baby Boom' },
+  { year: 1964, label: 'Boom ends' },
+  { year: 2001, label: '9/11' },
+  { year: 2020, label: 'COVID-19' },
+];
+
 // Draws series labels at the rightmost visible data point for each line,
 // replacing the legend box. Resolves vertical collisions by nudging labels down.
 const directLabelPlugin: Plugin<'line'> = {
@@ -80,7 +102,7 @@ const directLabelPlugin: Plugin<'line'> = {
     const lx = chartArea.right + 8;
 
     ctx.save();
-    ctx.font = '11px system-ui, Avenir, Helvetica, Arial, sans-serif';
+    ctx.font = '11px Inter, system-ui, sans-serif';
     ctx.textAlign = 'left';
 
     collected.forEach(({ y, targetY, label, color }) => {
@@ -108,9 +130,15 @@ interface NameChartProps {
   data: NameData;
   selectedNames: NameSelection[];
   yearRange: [number, number];
+  normalize?: boolean;
+  birthTotals?: Record<string, number>;
+  showAnnotations?: boolean;
 }
 
-const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange }: NameChartProps, ref) {
+const NameChart = forwardRef(function NameChart(
+  { data, selectedNames, yearRange, normalize = false, birthTotals = {}, showAnnotations = false }: NameChartProps,
+  ref
+) {
   const chartRef = useRef<ChartJS<'line'>>(null);
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
@@ -128,7 +156,8 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
   >(null);
 
   useImperativeHandle(ref, () => ({
-    clearTooltip: () => setPersistentTooltip(null)
+    clearTooltip: () => setPersistentTooltip(null),
+    resetZoom: () => { if (chartRef.current) chartRef.current.resetZoom(); },
   }), []);
 
   const chartData = useMemo(() => {
@@ -175,15 +204,21 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
           return { x: year, y: null, label: '< 5' };
         }
 
+        if (normalize && count > 0) {
+          const total = birthTotals[yearStr] || 1;
+          const per100k = (count / total) * 100_000;
+          return { x: year, y: per100k, label: per100k.toFixed(1) };
+        }
+
         return { x: year, y: count, label: count.toLocaleString() };
       }).filter(point => point.y !== null ? point.y > 0 : true);
 
-      const hue = (index * 137.5 + 200) % 360;
+      const color = PALETTE[index % PALETTE.length];
       return {
         label: isRegex ? `${name} (${matches?.join(', ')})` : `${name} (${gender})`,
         data: points as unknown as import('chart.js').Point[],
-        borderColor: `hsl(${hue}, 70%, 50%)`,
-        backgroundColor: `hsla(${hue}, 70%, 50%, 0)`,
+        borderColor: color,
+        backgroundColor: 'transparent',
         tension: 0,
         pointRadius: 0,
         pointHoverRadius: 4,
@@ -193,7 +228,7 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     });
 
     return { datasets };
-  }, [data, selectedNames, yearRange]);
+  }, [data, selectedNames, yearRange, normalize, birthTotals]);
 
   const handleResetZoom = () => {
     if (chartRef.current) chartRef.current.resetZoom();
@@ -308,6 +343,138 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
   const xMin = allDataX.reduce((min, x) => Math.min(min, x), yearRange[0]);
   const xMax = allDataX.reduce((max, x) => Math.max(max, x), yearRange[1]);
 
+  // Per-instance plugins created via useMemo so closures capture current isDark/showAnnotations
+  const chartPlugins = useMemo((): Plugin<'line'>[] => {
+    const rangeFramePlugin: Plugin<'line'> = {
+      id: 'rangeFrame',
+      afterDraw(chart) {
+        const { ctx, chartArea, scales } = chart;
+        if (!chartArea) return;
+
+        const allX: number[] = [];
+        const allY: number[] = [];
+        chart.data.datasets.forEach((_, i) => {
+          const meta = chart.getDatasetMeta(i);
+          if (meta.hidden) return;
+          meta.data.forEach(pt => {
+            const parsed = (pt as any).$context?.parsed;
+            if (parsed && parsed.y !== null && parsed.y > 0) {
+              allX.push(parsed.x);
+              allY.push(parsed.y);
+            }
+          });
+        });
+
+        if (allX.length === 0) return;
+
+        const xDataMin = Math.min(...allX);
+        const xDataMax = Math.max(...allX);
+        const yDataMax = Math.max(0, ...allY);
+
+        const xPixelMin = Math.max(scales.x.getPixelForValue(xDataMin), chartArea.left);
+        const xPixelMax = Math.min(scales.x.getPixelForValue(xDataMax), chartArea.right);
+        const yPixelMin = Math.max(scales.y.getPixelForValue(yDataMax), chartArea.top);
+
+        const lineColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)';
+        ctx.save();
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(xPixelMin, chartArea.bottom);
+        ctx.lineTo(xPixelMax, chartArea.bottom);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(chartArea.left, yPixelMin);
+        ctx.lineTo(chartArea.left, chartArea.bottom);
+        ctx.stroke();
+        ctx.restore();
+      },
+    };
+
+    const peakLabelPlugin: Plugin<'line'> = {
+      id: 'peakLabel',
+      afterDraw(chart) {
+        const { ctx, chartArea } = chart;
+        if (!chartArea) return;
+
+        chart.data.datasets.forEach((dataset, i) => {
+          const meta = chart.getDatasetMeta(i);
+          if (meta.hidden) return;
+
+          let peakIdx = -1;
+          let peakVal = -Infinity;
+          (dataset.data as unknown as DataPoint[]).forEach((pt, idx) => {
+            if (pt.y !== null && pt.y > peakVal) {
+              peakVal = pt.y;
+              peakIdx = idx;
+            }
+          });
+
+          if (peakIdx < 0) return;
+
+          const metaPt = meta.data[peakIdx] as unknown as { x: number; y: number };
+          if (metaPt.x < chartArea.left || metaPt.x > chartArea.right) return;
+          if (metaPt.y < chartArea.top || metaPt.y > chartArea.bottom) return;
+
+          const ptData = dataset.data[peakIdx] as unknown as DataPoint;
+          const color = dataset.borderColor as string;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(metaPt.x, metaPt.y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+
+          ctx.font = '10px Inter, system-ui, sans-serif';
+          ctx.fillStyle = isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)';
+          ctx.textAlign = 'center';
+          ctx.fillText(`${ptData.x}: ${ptData.label}`, metaPt.x, metaPt.y - 8);
+          ctx.restore();
+        });
+      },
+    };
+
+    const histAnnotationsPlugin: Plugin<'line'> = {
+      id: 'histAnnotations',
+      beforeDraw(chart) {
+        if (!showAnnotations) return;
+        const { ctx, chartArea, scales } = chart;
+        if (!chartArea) return;
+
+        const lineColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)';
+        const textColor = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)';
+
+        ctx.save();
+        EVENTS.forEach(({ year, label }) => {
+          if (year < scales.x.min || year > scales.x.max) return;
+          const px = scales.x.getPixelForValue(year);
+          if (px < chartArea.left || px > chartArea.right) return;
+
+          ctx.strokeStyle = lineColor;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(px, chartArea.top);
+          ctx.lineTo(px, chartArea.bottom);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.save();
+          ctx.translate(px - 4, chartArea.top + 4);
+          ctx.rotate(-Math.PI / 2);
+          ctx.fillStyle = textColor;
+          ctx.font = '10px Inter, system-ui, sans-serif';
+          ctx.textAlign = 'right';
+          ctx.fillText(label, 0, 0);
+          ctx.restore();
+        });
+        ctx.restore();
+      },
+    };
+
+    return [directLabelPlugin, rangeFramePlugin, peakLabelPlugin, histAnnotationsPlugin];
+  }, [isDark, showAnnotations]);
+
   const options: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
@@ -331,7 +498,7 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
           stepSize: 1,
           autoSkip: true,
           maxRotation: 0,
-          font: { size: 12 },
+          font: { size: 12, family: 'Inter, system-ui, sans-serif' },
           color: tickColor,
         },
       },
@@ -341,13 +508,13 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
         grid: { color: gridColor },
         title: {
           display: true,
-          text: 'Births',
-          font: { size: 13 },
+          text: normalize ? 'Births per 100K' : 'Births',
+          font: { size: 13, family: 'Inter, system-ui, sans-serif' },
           color: tickColor,
         },
         ticks: {
-          callback: (v) => Number(v).toLocaleString(),
-          font: { size: 12 },
+          callback: (v) => normalize ? Number(v).toFixed(1) : Number(v).toLocaleString(),
+          font: { size: 12, family: 'Inter, system-ui, sans-serif' },
           color: tickColor,
         },
         suggestedMax: 10,
@@ -429,7 +596,7 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <Group justify="space-between" style={{ marginBottom: '8px' }}>
         <Text size="sm" c="dimmed">
-          Hold Ctrl + scroll to zoom • Hold Shift + drag to pan • Drag to select area
+          Hold Ctrl + scroll to zoom · Shift + drag to pan · Drag to select
         </Text>
         <Button variant="light" size="xs" onClick={handleResetZoom} style={{ minWidth: '80px' }}>
           Reset Zoom
@@ -440,7 +607,7 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
           ref={chartRef}
           data={chartData}
           options={options}
-          plugins={[directLabelPlugin]}
+          plugins={chartPlugins}
           onClick={handleChartClick}
         />
         {persistentTooltip && chartRef.current && (() => {
