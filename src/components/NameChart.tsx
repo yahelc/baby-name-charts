@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState, useImperativeHandle, forwardRef } from 'react';
+import { useMemo, useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import type { CSSProperties } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -14,7 +15,7 @@ import type { ChartOptions, Chart as ChartType } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import type { NameData, NameSelection } from '../types';
-import { Group, Button, Text, useMantineColorScheme } from '@mantine/core';
+import { useMantineColorScheme } from '@mantine/core';
 
 ChartJS.register(
   CategoryScale,
@@ -29,13 +30,17 @@ ChartJS.register(
 
 type DataPoint = { x: number; y: number | null; label: string };
 
-// Draws series labels at the rightmost visible data point for each line,
-// replacing the legend box. Resolves vertical collisions by nudging labels down.
+// Draws series labels at the rightmost visible point of each line.
+// Skips entirely when layout.padding.right < 40 (e.g. on narrow screens).
+// Resolves vertical collisions by nudging labels down.
 const directLabelPlugin: Plugin<'line'> = {
   id: 'directLabel',
   afterDraw(chart) {
     const { ctx, chartArea, data } = chart;
     if (!chartArea) return;
+
+    const padRight = (chart.options.layout?.padding as Record<string, number> | undefined)?.right ?? 0;
+    if (padRight < 40) return;
 
     type LabelInfo = { targetY: number; y: number; label: string; color: string };
     const collected: LabelInfo[] = [];
@@ -112,23 +117,34 @@ interface NameChartProps {
 
 const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange }: NameChartProps, ref) {
   const chartRef = useRef<ChartJS<'line'>>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
 
   const [persistentTooltip, setPersistentTooltip] = useState<
     | null
-    | {
-        datasetIndex: number;
-        index: number;
-        dataX: number;
-        dataY: number;
-        label: string;
-        value: string;
-      }
+    | { datasetIndex: number; index: number; dataX: number; dataY: number; label: string; value: string }
   >(null);
 
+  // Track container width to decide label padding and visibility
+  const [containerWidth, setContainerWidth] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 800
+  );
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => {
+      setContainerWidth(entries[0].contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const labelPadRight = containerWidth < 480 ? 0 : containerWidth < 700 ? 72 : 120;
+
   useImperativeHandle(ref, () => ({
-    clearTooltip: () => setPersistentTooltip(null)
+    clearTooltip: () => setPersistentTooltip(null),
   }), []);
 
   const chartData = useMemo(() => {
@@ -141,12 +157,8 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
           Object.keys(data[matchName]?.F || {}).forEach(y => allYears.add(y));
         });
       } else {
-        if (gender === 'All' || gender === 'M') {
-          Object.keys(data[name]?.M || {}).forEach(y => allYears.add(y));
-        }
-        if (gender === 'All' || gender === 'F') {
-          Object.keys(data[name]?.F || {}).forEach(y => allYears.add(y));
-        }
+        if (gender === 'All' || gender === 'M') Object.keys(data[name]?.M || {}).forEach(y => allYears.add(y));
+        if (gender === 'All' || gender === 'F') Object.keys(data[name]?.F || {}).forEach(y => allYears.add(y));
       }
 
       const firstYear = allYears.size > 0
@@ -170,11 +182,8 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
           count = data[name]?.[gender]?.[yearStr] || 0;
         }
 
-        // Years after first appearance with no SSA data: render as a gap, not a false zero
-        if (year >= firstYear && count === 0) {
-          return { x: year, y: null, label: '< 5' };
-        }
-
+        // Years after first appearance with no SSA data: gap, not false zero
+        if (year >= firstYear && count === 0) return { x: year, y: null, label: '< 5' };
         return { x: year, y: count, label: count.toLocaleString() };
       }).filter(point => point.y !== null ? point.y > 0 : true);
 
@@ -182,8 +191,8 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
       return {
         label: isRegex ? `${name} (${matches?.join(', ')})` : `${name} (${gender})`,
         data: points as unknown as import('chart.js').Point[],
-        borderColor: `hsl(${hue}, 70%, 50%)`,
-        backgroundColor: `hsla(${hue}, 70%, 50%, 0)`,
+        borderColor: `hsl(${hue}, 65%, 48%)`,
+        backgroundColor: `hsla(${hue}, 65%, 48%, 0)`,
         tension: 0,
         pointRadius: 0,
         pointHoverRadius: 4,
@@ -195,30 +204,25 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     return { datasets };
   }, [data, selectedNames, yearRange]);
 
+  const hasData = selectedNames.length > 0;
+
   const handleResetZoom = () => {
-    if (chartRef.current) chartRef.current.resetZoom();
+    chartRef.current?.resetZoom();
   };
 
   const drawTooltipOnCanvas = (chart: ChartJS<'line'>, tooltip: typeof persistentTooltip) => {
     if (!chart || !tooltip) return;
     const ctx = chart.ctx;
     ctx.save();
-    const boxWidth = 120;
-    const boxHeight = 36;
-    const xScale = chart.scales.x;
-    const yScale = chart.scales.y;
-    const x = xScale.getPixelForValue(tooltip.dataX) + 12;
-    const y = yScale.getPixelForValue(tooltip.dataY) - boxHeight / 2;
+    const boxWidth = 120, boxHeight = 36;
+    const x = chart.scales.x.getPixelForValue(tooltip.dataX) + 12;
+    const y = chart.scales.y.getPixelForValue(tooltip.dataY) - boxHeight / 2;
     ctx.globalAlpha = 0.95;
     ctx.fillStyle = '#212529';
     ctx.strokeStyle = '#222';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + boxWidth, y);
-    ctx.lineTo(x + boxWidth, y + boxHeight);
-    ctx.lineTo(x, y + boxHeight);
-    ctx.closePath();
+    ctx.rect(x, y, boxWidth, boxHeight);
     ctx.fill();
     ctx.stroke();
     ctx.globalAlpha = 1;
@@ -229,8 +233,6 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     ctx.closePath();
     ctx.fillStyle = '#212529';
     ctx.fill();
-    ctx.strokeStyle = '#222';
-    ctx.stroke();
     const pt = chartData.datasets[tooltip.datasetIndex].data[tooltip.index] as unknown as DataPoint;
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 12px sans-serif';
@@ -245,12 +247,7 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     ctx.stroke();
     ctx.fillStyle = '#fff';
     ctx.font = '12px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(
-      `${chartData.datasets[tooltip.datasetIndex].label}: ${pt.label}`,
-      x + 22,
-      y + 29
-    );
+    ctx.fillText(`${chartData.datasets[tooltip.datasetIndex].label}: ${pt.label}`, x + 22, y + 29);
     ctx.restore();
   };
 
@@ -258,49 +255,44 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     if (!chart || !tooltip) return;
     const ctx = chart.ctx;
     ctx.save();
-    const boxWidth = 120;
-    const boxHeight = 36;
-    const xScale = chart.scales.x;
-    const yScale = chart.scales.y;
-    const x = xScale.getPixelForValue(tooltip.dataX) + 12;
-    const y = yScale.getPixelForValue(tooltip.dataY) - boxHeight / 2;
+    const boxWidth = 120, boxHeight = 36;
+    const x = chart.scales.x.getPixelForValue(tooltip.dataX) + 12;
+    const y = chart.scales.y.getPixelForValue(tooltip.dataY) - boxHeight / 2;
     ctx.clearRect(x - 2, y - 2, boxWidth + 4, boxHeight + 4);
     ctx.restore();
     chart.update();
   };
 
   const handleDownloadChart = () => {
-    if (chartRef.current) {
-      const ctx = chartRef.current.ctx;
-      ctx.save();
-      ctx.globalCompositeOperation = 'destination-over';
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, chartRef.current.width, chartRef.current.height);
-      ctx.restore();
-      if (persistentTooltip) drawTooltipOnCanvas(chartRef.current, persistentTooltip);
-      const link = document.createElement('a');
-      link.download = 'baby-name-trends.png';
-      link.href = chartRef.current.toBase64Image();
-      link.click();
-      if (persistentTooltip) clearTooltipOnCanvas(chartRef.current, persistentTooltip);
-    }
+    if (!chartRef.current) return;
+    const ctx = chartRef.current.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, chartRef.current.width, chartRef.current.height);
+    ctx.restore();
+    if (persistentTooltip) drawTooltipOnCanvas(chartRef.current, persistentTooltip);
+    const link = document.createElement('a');
+    link.download = 'baby-name-trends.png';
+    link.href = chartRef.current.toBase64Image();
+    link.click();
+    if (persistentTooltip) clearTooltipOnCanvas(chartRef.current, persistentTooltip);
   };
 
   const handleCopyChart = async () => {
-    if (chartRef.current) {
-      if (persistentTooltip) drawTooltipOnCanvas(chartRef.current, persistentTooltip);
-      try {
-        const blob = await fetch(chartRef.current.toBase64Image()).then(r => r.blob());
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-      } catch (err) {
-        console.error('Failed to copy chart:', err);
-      }
-      if (persistentTooltip) clearTooltipOnCanvas(chartRef.current, persistentTooltip);
+    if (!chartRef.current) return;
+    if (persistentTooltip) drawTooltipOnCanvas(chartRef.current, persistentTooltip);
+    try {
+      const blob = await fetch(chartRef.current.toBase64Image()).then(r => r.blob());
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    } catch (err) {
+      console.error('Failed to copy chart:', err);
     }
+    if (persistentTooltip) clearTooltipOnCanvas(chartRef.current, persistentTooltip);
   };
 
-  const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
-  const tickColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)';
+  const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+  const tickColor = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)';
 
   const allDataX = chartData.datasets.flatMap(d =>
     (d.data as unknown as DataPoint[]).filter(p => p.y !== null).map(p => p.x)
@@ -312,15 +304,13 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     responsive: true,
     maintainAspectRatio: false,
     layout: {
-      padding: { right: 120 },
+      padding: { right: labelPadRight, top: 4 },
     },
-    interaction: {
-      mode: 'index',
-      intersect: false,
-    },
+    interaction: { mode: 'index', intersect: false },
     scales: {
       x: {
         type: 'linear',
+        display: hasData,
         border: { display: false },
         grid: { color: gridColor },
         title: { display: false },
@@ -331,23 +321,24 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
           stepSize: 1,
           autoSkip: true,
           maxRotation: 0,
-          font: { size: 12 },
+          font: { size: 11 },
           color: tickColor,
         },
       },
       y: {
+        display: hasData,
         beginAtZero: true,
         border: { display: false },
         grid: { color: gridColor },
         title: {
-          display: true,
+          display: hasData,
           text: 'Births',
-          font: { size: 13 },
+          font: { size: 12 },
           color: tickColor,
         },
         ticks: {
           callback: (v) => Number(v).toLocaleString(),
-          font: { size: 12 },
+          font: { size: 11 },
           color: tickColor,
         },
         suggestedMax: 10,
@@ -371,19 +362,15 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
         },
       },
       zoom: {
-        pan: {
-          enabled: true,
-          mode: 'x',
-          modifierKey: 'shift',
-        },
+        pan: { enabled: true, mode: 'x', modifierKey: 'shift' },
         zoom: {
           wheel: { enabled: true, modifierKey: 'ctrl' },
           pinch: { enabled: true },
           mode: 'x',
           drag: {
             enabled: true,
-            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-            borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
+            backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+            borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)',
             borderWidth: 1,
           },
         },
@@ -399,10 +386,9 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
     if (points.length > 0) {
       const { datasetIndex, index } = points[0];
       const meta = chartInstance.getDatasetMeta(datasetIndex);
-      const point = meta.data[index];
+      const pointAny = meta.data[index] as any;
       let dataX: number, dataY: number;
-      const pointAny = point as any;
-      if (pointAny.$context && pointAny.$context.parsed) {
+      if (pointAny.$context?.parsed) {
         dataX = pointAny.$context.parsed.x;
         dataY = pointAny.$context.parsed.y;
       } else {
@@ -412,30 +398,30 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
       }
       const label = chartData.datasets[datasetIndex].label || '';
       const pt = chartData.datasets[datasetIndex].data[index] as unknown as DataPoint;
-      const value = pt.label || '';
-      if (
-        persistentTooltip &&
-        persistentTooltip.datasetIndex === datasetIndex &&
-        persistentTooltip.index === index
-      ) {
+      if (persistentTooltip?.datasetIndex === datasetIndex && persistentTooltip?.index === index) {
         setPersistentTooltip(null);
       } else {
-        setPersistentTooltip({ datasetIndex, index, dataX, dataY, label, value });
+        setPersistentTooltip({ datasetIndex, index, dataX, dataY, label, value: pt.label || '' });
       }
     }
   };
 
+  const ctrlBtn: CSSProperties = {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: 11,
+    color: isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.25)',
+    padding: 0,
+    fontFamily: 'inherit',
+    letterSpacing: '0.01em',
+  };
+
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <Group justify="space-between" style={{ marginBottom: '8px' }}>
-        <Text size="sm" c="dimmed">
-          Hold Ctrl + scroll to zoom • Hold Shift + drag to pan • Drag to select area
-        </Text>
-        <Button variant="light" size="xs" onClick={handleResetZoom} style={{ minWidth: '80px' }}>
-          Reset Zoom
-        </Button>
-      </Group>
-      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+
+      {/* ── Chart canvas ────────────────────────────────────── */}
+      <div ref={containerRef} style={{ flex: '1 1 0', minHeight: 0, position: 'relative' }}>
         <Line
           ref={chartRef}
           data={chartData}
@@ -443,54 +429,68 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
           plugins={[directLabelPlugin]}
           onClick={handleChartClick}
         />
+
+        {/* Empty state prompt */}
+        {!hasData && (
+          <div style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+          }}>
+            <span style={{
+              fontSize: 13,
+              letterSpacing: '0.02em',
+              color: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.16)',
+            }}>
+              Search for a name above to see trends
+            </span>
+          </div>
+        )}
+
+        {/* Persistent click tooltip */}
         {persistentTooltip && chartRef.current && (() => {
           const chart = chartRef.current;
-          const xScale = chart.scales.x;
-          const yScale = chart.scales.y;
-          const px = xScale.getPixelForValue(persistentTooltip.dataX);
-          const py = yScale.getPixelForValue(persistentTooltip.dataY);
+          const px = chart.scales.x.getPixelForValue(persistentTooltip.dataX);
+          const py = chart.scales.y.getPixelForValue(persistentTooltip.dataY);
           const pt = chartData.datasets[persistentTooltip.datasetIndex].data[persistentTooltip.index] as unknown as DataPoint;
           return (
-            <div
-              style={{
-                position: 'absolute',
-                left: px + 12,
-                top: py - 18,
-                pointerEvents: 'none',
-                zIndex: 10,
-                background: 'rgba(33, 37, 41, 0.95)',
-                color: '#fff',
-                borderRadius: 4,
-                fontSize: 12,
-                fontFamily: 'inherit',
-                padding: '4px 8px',
-                minWidth: 100,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                border: '1px solid #222',
-                textAlign: 'left',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-              }}
-            >
+            <div style={{
+              position: 'absolute',
+              left: px + 12,
+              top: py - 18,
+              pointerEvents: 'none',
+              zIndex: 10,
+              background: 'rgba(33,37,41,0.95)',
+              color: '#fff',
+              borderRadius: 3,
+              fontSize: 12,
+              fontFamily: 'inherit',
+              padding: '4px 8px',
+              minWidth: 100,
+              boxShadow: '0 1px 6px rgba(0,0,0,0.18)',
+              border: '1px solid rgba(0,0,0,0.3)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+            }}>
               <svg width="16" height="16" style={{ position: 'absolute', left: -16, top: 13, pointerEvents: 'none' }}>
-                <polygon points="16,4 0,8 16,12" fill="#212529" stroke="#222" strokeWidth="1" />
+                <polygon points="16,4 0,8 16,12" fill="rgba(33,37,41,0.95)" />
               </svg>
-              <div style={{ fontSize: 11, opacity: 0.85, marginBottom: 1 }}>
-                Year: <b>{pt.x}</b>
+              <div style={{ fontSize: 10, opacity: 0.7, marginBottom: 1 }}>
+                {pt.x}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span
-                  style={{
-                    display: 'inline-block',
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    background: chartData.datasets[persistentTooltip.datasetIndex].borderColor as string,
-                    border: '1.2px solid #fff',
-                    marginRight: 3,
-                  }}
-                />
+                <span style={{
+                  display: 'inline-block',
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  background: chartData.datasets[persistentTooltip.datasetIndex].borderColor as string,
+                  flexShrink: 0,
+                }} />
                 <span style={{ fontWeight: 600, fontSize: 12 }}>
                   {persistentTooltip.label}: {persistentTooltip.value}
                 </span>
@@ -499,15 +499,21 @@ const NameChart = forwardRef(function NameChart({ data, selectedNames, yearRange
           );
         })()}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
-        <Group gap="xs">
-          <Button variant="light" size="xs" onClick={handleDownloadChart} style={{ minWidth: '80px' }}>
-            Download
-          </Button>
-          <Button variant="light" size="xs" onClick={handleCopyChart} style={{ minWidth: '80px' }}>
-            Copy
-          </Button>
-        </Group>
+
+      {/* ── Controls ────────────────────────────────────────── */}
+      <div style={{
+        flexShrink: 0,
+        display: 'flex',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        gap: 16,
+        padding: '4px 0 6px',
+      }}>
+        {hasData && (
+          <button onClick={handleResetZoom} style={ctrlBtn}>reset zoom</button>
+        )}
+        <button onClick={handleDownloadChart} style={ctrlBtn}>download</button>
+        <button onClick={handleCopyChart} style={ctrlBtn}>copy image</button>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
-import { Button, Group, useMantineColorScheme, Text, Stack } from '@mantine/core';
+import { useMantineColorScheme } from '@mantine/core';
 import { useState, useEffect, useRef, useMemo } from 'react';
+import type { CSSProperties } from 'react';
 import type { NameData, NameSelection } from './types';
 import NameSearch from './components/NameSearch';
 import NameChart from './components/NameChart';
@@ -23,17 +24,30 @@ function App() {
   const { colorScheme } = useMantineColorScheme();
   const nameChartRef = useRef<any>(null);
 
+  const isDark = colorScheme === 'dark';
+  const bg = isDark ? '#1a1b1e' : '#ffffff';
+  const fg = isDark ? '#e8e8e8' : '#1a1a1a';
+
+  const textBtn: CSSProperties = {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: 12,
+    color: isDark ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.32)',
+    padding: 0,
+    fontFamily: 'inherit',
+    letterSpacing: '0.01em',
+  };
+
   // Load state from URL on mount
   useEffect(() => {
-    const hash = window.location.hash.slice(1); // Remove the # symbol
+    const hash = window.location.hash.slice(1);
     if (!hash) return;
-
     try {
       const state = JSON.parse(decodeURIComponent(hash));
       if (state.names && Array.isArray(state.names)) {
         setSelectedNames(state.names);
       }
-      // Clear the hash after loading
       window.history.replaceState(null, '', window.location.pathname);
     } catch (e) {
       console.error('Failed to parse state from URL:', e);
@@ -46,43 +60,29 @@ function App() {
       try {
         setLoading(true);
         const baseUrl = import.meta.env.BASE_URL || '/baby-name-charts/';
-        // First load the manifest
         const manifestResponse = await fetch(`${baseUrl}chunks/manifest.json`);
-        if (!manifestResponse.ok) {
-          throw new Error(`Failed to load manifest: ${manifestResponse.status}`);
-        }
+        if (!manifestResponse.ok) throw new Error(`Failed to load manifest: ${manifestResponse.status}`);
         const manifest: Manifest = await manifestResponse.json();
-        
-        // Load all chunks in parallel
+
         const chunkPromises = manifest.chunks.map(async (chunk) => {
           const response = await fetch(`${baseUrl}chunks/${chunk.filename}`);
-          if (!response.ok) {
-            throw new Error(`Failed to load chunk ${chunk.filename}: ${response.status}`);
-          }
+          if (!response.ok) throw new Error(`Failed to load chunk ${chunk.filename}: ${response.status}`);
           return response.json();
         });
-        
+
         const chunks = await Promise.all(chunkPromises);
-        
-        // Merge all chunks into one dataset
+
         const mergedData: NameData = {};
         chunks.forEach((chunk) => {
           Object.entries(chunk).forEach(([name, genderData]) => {
-            const genderDataTyped = genderData as { M: Record<string, number>; F: Record<string, number> };
-            if (!mergedData[name]) {
-              mergedData[name] = { M: {}, F: {} };
-            }
+            const gd = genderData as { M: Record<string, number>; F: Record<string, number> };
+            if (!mergedData[name]) mergedData[name] = { M: {}, F: {} };
             (['M', 'F'] as const).forEach((gender) => {
-              if (genderDataTyped[gender]) {
-                mergedData[name][gender] = {
-                  ...mergedData[name][gender],
-                  ...genderDataTyped[gender]
-                };
-              }
+              if (gd[gender]) mergedData[name][gender] = { ...mergedData[name][gender], ...gd[gender] };
             });
           });
         });
-        
+
         setData(mergedData);
       } catch (error) {
         console.error('Error loading data chunks:', error);
@@ -90,40 +90,31 @@ function App() {
         setLoading(false);
       }
     }
-    
     loadData();
   }, []);
 
   const handleCopyLink = async () => {
-    const state = {
-      names: selectedNames
-    };
-    const hash = encodeURIComponent(JSON.stringify(state));
+    const hash = encodeURIComponent(JSON.stringify({ names: selectedNames }));
     const url = `${window.location.origin}${window.location.pathname}#${hash}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000); // Reset after 2 seconds
+      setTimeout(() => setCopySuccess(false), 2000);
     } catch (err) {
       console.error('Failed to copy link:', err);
     }
   };
 
   const handleClear = () => {
-    if (nameChartRef.current) {
-      nameChartRef.current.clearTooltip();
-    }
+    nameChartRef.current?.clearTooltip();
     setSelectedNames([]);
   };
 
   const handleRemoveName = (index: number) => {
-    if (nameChartRef.current) {
-      nameChartRef.current.clearTooltip();
-    }
+    nameChartRef.current?.clearTooltip();
     setSelectedNames(selectedNames.filter((_, i) => i !== index));
   };
 
-  // Shuffle interestingNames once at page load
   const shuffledInteresting = useMemo(() => {
     const arr = [...interestingNames];
     for (let i = arr.length - 1; i > 0; i--) {
@@ -141,165 +132,98 @@ function App() {
   if (loading) {
     return (
       <div style={{
-        width: '100vw',
-        height: '100vh',
+        height: '100dvh',
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: colorScheme === 'dark' ? '#1a1b1e' : '#fff',
-        color: colorScheme === 'dark' ? '#fff' : '#1a1b1e',
+        backgroundColor: bg,
+        color: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)',
+        fontSize: 13,
+        letterSpacing: '0.03em',
       }}>
-        <Stack align="center" gap="xl">
-          <Text
-            size="xl"
-            fw={700}
-            style={{
-              animation: 'bounce 1s infinite',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            Loading
-            <Text
-              component="span"
-              size="xl"
-              fw={700}
-              style={{
-                animation: 'pulse 2s infinite',
-              }}
-            >
-              102,482
-            </Text>
-            baby names...
-          </Text>
-          <Text
-            size="lg"
-            c="dimmed"
-            fs="italic"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px'
-            }}
-          >
-            Counting all the{' '}
-            <span style={{ animation: 'bounce1 1.2s infinite' }}>👶</span>
-            <span style={{ animation: 'bounce2 1.4s infinite' }}>👶🏻</span>
-            <span style={{ animation: 'bounce3 1.6s infinite' }}>👶🏼</span>
-            <span style={{ animation: 'bounce4 1.8s infinite' }}>👶🏽</span>
-            <span style={{ animation: 'bounce5 2.0s infinite' }}>👶🏾</span>
-            <span style={{ animation: 'bounce6 2.2s infinite' }}>👶🏿</span>
-            ...
-          </Text>
-        </Stack>
-        <style>
-          {`
-            @keyframes bounce {
-              0%, 100% { transform: translateY(0); }
-              50% { transform: translateY(-10px); }
-            }
-            @keyframes pulse {
-              0%, 100% { transform: scale(1); }
-              50% { transform: scale(1.2); }
-            }
-            @keyframes bounce1 {
-              0%, 100% { transform: translateY(0); }
-              50% { transform: translateY(-8px); }
-            }
-            @keyframes bounce2 {
-              0%, 100% { transform: translateY(0); }
-              50% { transform: translateY(-10px); }
-            }
-            @keyframes bounce3 {
-              0%, 100% { transform: translateY(0); }
-              50% { transform: translateY(-12px); }
-            }
-            @keyframes bounce4 {
-              0%, 100% { transform: translateY(0); }
-              50% { transform: translateY(-10px); }
-            }
-            @keyframes bounce5 {
-              0%, 100% { transform: translateY(0); }
-              50% { transform: translateY(-8px); }
-            }
-            @keyframes bounce6 {
-              0%, 100% { transform: translateY(0); }
-              50% { transform: translateY(-12px); }
-            }
-          `}
-        </style>
+        Loading 102,482 names…
       </div>
     );
   }
 
   if (!data) {
-    return <div>Error loading data</div>;
+    return (
+      <div style={{ height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: bg, color: fg }}>
+        Error loading data
+      </div>
+    );
   }
 
   return (
-    <div
-      style={{
-        padding: '10px',
-        width: '100vw',
-        minHeight: '100vh',
+    <div style={{
+      height: '100dvh',
+      display: 'flex',
+      flexDirection: 'column',
+      backgroundColor: bg,
+      color: fg,
+      overflow: 'hidden',
+    }}>
+
+      {/* ── Header ──────────────────────────────────────────────── */}
+      <div style={{
+        flexShrink: 0,
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
-        backgroundColor: colorScheme === 'dark' ? '#1a1b1e' : '#fff',
-        color: colorScheme === 'dark' ? '#fff' : '#1a1b1e',
-        boxSizing: 'border-box',
-        overflow: 'hidden',
-      }}
-    >
-      <div style={{ 
-        width: '100%',
-        maxWidth: '1200px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px'
+        padding: '14px 20px 8px',
+        gap: 14,
       }}>
-        <Group justify="space-between" style={{ flexWrap: 'wrap', gap: '10px' }}>
-          <h1 style={{ margin: 0, fontSize: 'clamp(1.5rem, 4vw, 2rem)' }}>Baby Name Trends</h1>
-          <Group gap="xs" style={{ flexWrap: 'wrap' }}>
-            <Button 
-              variant="outline" 
-              color={copySuccess ? "green" : "gray"}
-              onClick={handleCopyLink}
-              disabled={selectedNames.length === 0}
-              size="sm"
+        <span style={{
+          fontSize: 12,
+          fontWeight: 600,
+          letterSpacing: '0.07em',
+          textTransform: 'uppercase',
+          opacity: 0.5,
+        }}>
+          Baby Name Trends
+        </span>
+        <span style={{ flex: 1 }} />
+        {selectedNames.length > 0 && (
+          <>
+            <button onClick={handleCopyLink} style={textBtn}>
+              {copySuccess ? 'copied!' : 'copy link'}
+            </button>
+            <button onClick={handleClear} style={textBtn}>
+              clear
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* ── Search ──────────────────────────────────────────────── */}
+      <div style={{ flexShrink: 0, padding: '0 20px 6px' }}>
+        <NameSearch
+          data={data}
+          selectedNames={selectedNames}
+          onSelectionChange={setSelectedNames}
+          onRemoveName={handleRemoveName}
+        />
+        {selectedNames.length === 0 && (
+          <div style={{ marginTop: 8 }}>
+            <button
+              onClick={handleLoadInteresting}
+              style={{ ...textBtn, color: '#228be6', fontSize: 12 }}
             >
-              {copySuccess ? "Copied!" : "Copy Link"}
-            </Button>
-            <Button 
-              variant="outline" 
-              color="gray" 
-              onClick={handleClear}
-              disabled={selectedNames.length === 0}
-              size="sm"
-            >
-              Clear Selection
-            </Button>
-          </Group>
-        </Group>
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-          <div style={{ width: '100%', maxWidth: '800px' }}>
-            <NameSearch 
-              data={data} 
-              selectedNames={selectedNames}
-              onSelectionChange={setSelectedNames}
-              onRemoveName={handleRemoveName}
-            />
+              Try an interesting name →
+            </button>
           </div>
-        </div>
-        <div style={{ 
-          width: '100%',
-          height: '50vh',
-          minHeight: '300px',
-          maxHeight: '600px'
+        )}
+      </div>
+
+      {/* ── Chart ───────────────────────────────────────────────── */}
+      <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'hidden' }}>
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          padding: '4px 20px 0',
+          boxSizing: 'border-box',
         }}>
           <NameChart
             ref={nameChartRef}
@@ -308,30 +232,25 @@ function App() {
             yearRange={[1880, 2022]}
           />
         </div>
-        {/* Footer */}
-        <footer style={{
-          width: '100%',
-          marginTop: 24,
-          padding: '24px 0 8px 0',
-          textAlign: 'center',
-          borderTop: '1px solid #eee',
-          color: '#888',
-          fontSize: 15,
-        }}>
-          <div style={{ marginBottom: 8 }}>
-            <a
-              href="#"
-              style={{ color: '#228be6', textDecoration: 'underline', cursor: 'pointer', fontSize: 16 }}
-              onClick={e => { e.preventDefault(); handleLoadInteresting(); }}
-            >
-              Load an interesting name
-            </a>
-          </div>
-          <div style={{ fontSize: 14, color: '#aaa' }}>
-            by Yahel Carmon | Data courtesy of the <a href="https://www.ssa.gov/oact/babynames/limits.html" target="_blank">Social Security Administration</a>
-          </div>
-        </footer>
       </div>
+
+      {/* ── Footer ──────────────────────────────────────────────── */}
+      <footer style={{
+        flexShrink: 0,
+        padding: '6px 20px 10px',
+        fontSize: 11,
+        color: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.28)',
+      }}>
+        by Yahel Carmon · data:{' '}
+        <a
+          href="https://www.ssa.gov/oact/babynames/limits.html"
+          target="_blank"
+          rel="noreferrer"
+          style={{ color: 'inherit', textDecoration: 'underline' }}
+        >
+          SSA
+        </a>
+      </footer>
     </div>
   );
 }

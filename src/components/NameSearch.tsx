@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { TextInput, Group, Text, ActionIcon, Paper, Box, useMantineColorScheme } from '@mantine/core';
+import { TextInput, Paper, Box, useMantineColorScheme } from '@mantine/core';
 import type { NameData, NameSelection } from '../types';
 import { useDebouncedValue } from '@mantine/hooks';
 
@@ -190,39 +190,43 @@ export default function NameSearch({ data, selectedNames, onSelectionChange, onR
           )}
         </Paper>
       )}
-      <Group gap="xs" mt="xs" style={{ flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: selectedNames.length > 0 ? '8px' : 0 }}>
         {selectedNames.map((selection, index) => (
           <div
             key={`${selection.name}-${selection.gender}-${index}`}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              backgroundColor: 'var(--mantine-color-blue-0)',
-              border: '1px solid var(--mantine-color-blue-3)',
-              borderRadius: '4px',
-              padding: '4px 8px',
-              gap: '4px',
-              color: 'var(--mantine-color-blue-9)',
+              gap: 5,
+              border: `1px solid ${colorScheme === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.14)'}`,
+              borderRadius: 2,
+              padding: '2px 6px 2px 8px',
+              fontSize: 12,
+              color: colorScheme === 'dark' ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.65)',
             }}
           >
-            <ActionIcon
-              variant="subtle"
-              color="blue"
-              size="xs"
+            <span style={{ whiteSpace: 'nowrap' }}>
+              {selection.isRegex ? selection.name : `${selection.name} (${selection.gender})`}
+            </span>
+            <button
               onClick={() => handleRemoveName(index)}
               style={{
-                marginRight: '-4px',
-                marginLeft: '-4px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 11,
+                lineHeight: 1,
+                padding: '0 0 0 2px',
+                color: 'inherit',
+                opacity: 0.5,
+                fontFamily: 'inherit',
               }}
             >
-              ✖
-            </ActionIcon>
-            <Text size="sm" style={{ whiteSpace: 'nowrap' }}>
-              {selection.isRegex ? selection.name : `${selection.name} (${selection.gender})`}
-            </Text>
+              ×
+            </button>
           </div>
         ))}
-      </Group>
+      </div>
     </div>
   );
 } 
