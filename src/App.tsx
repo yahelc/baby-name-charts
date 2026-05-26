@@ -57,6 +57,29 @@ function App() {
     fontWeight: 600,
   };
 
+  const toggleChip = (active: boolean): CSSProperties => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
+    padding: '3px 10px',
+    borderRadius: 12,
+    fontSize: 12,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    letterSpacing: '0.01em',
+    transition: 'background 0.12s, color 0.12s, border-color 0.12s',
+    border: active
+      ? `1px solid ${isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.18)'}`
+      : `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'}`,
+    background: active
+      ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)')
+      : 'transparent',
+    color: active
+      ? (isDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.75)')
+      : subtleFg,
+    fontWeight: active ? 600 : 400,
+  });
+
   const yearInput: CSSProperties = {
     width: 52,
     border: 'none',
@@ -282,8 +305,8 @@ function App() {
           onSelectionChange={setSelectedNames}
           onRemoveName={handleRemoveName}
         />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, color: subtleFg }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: subtleFg, marginRight: 4 }}>
             Years:{' '}
             <input
               type="number"
@@ -303,36 +326,66 @@ function App() {
               style={yearInput}
             />
           </span>
-          <button
-            style={showAnnotations ? activeTextBtn : textBtn}
-            onClick={() => setShowAnnotations(v => !v)}
-          >
-            {showAnnotations ? 'events ✓' : 'events'}
-          </button>
-          <button
-            style={normalize ? activeTextBtn : textBtn}
-            onClick={() => setNormalize(v => !v)}
-          >
-            {normalize ? 'per 100K ✓' : 'per 100K'}
-          </button>
-          <button
-            style={showYoY ? activeTextBtn : textBtn}
-            onClick={() => setShowYoY(v => !v)}
-          >
-            {showYoY ? '% change ✓' : '% change'}
-          </button>
-          <button
-            style={showStats ? activeTextBtn : textBtn}
-            onClick={() => setShowStats(v => !v)}
-          >
-            {showStats ? 'stats ✓' : 'stats'}
-          </button>
-          <button
-            style={showDecades ? activeTextBtn : textBtn}
-            onClick={() => setShowDecades(v => !v)}
-          >
-            {showDecades ? 'by decade ✓' : 'by decade'}
-          </button>
+
+          {/* Chart-level modifiers */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap',
+            paddingLeft: 8,
+            borderLeft: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+          }}>
+            <button
+              style={toggleChip(showAnnotations)}
+              onClick={() => setShowAnnotations(v => !v)}
+              title="Overlay historical events on the chart (WWI, Great Depression, WWII, Baby Boom, 9/11, COVID-19, etc.)"
+            >
+              {showAnnotations && <span aria-hidden>✓</span>}
+              event markers
+            </button>
+            <button
+              style={toggleChip(normalize)}
+              onClick={() => setNormalize(v => !v)}
+              title="Normalize the y-axis to births per 100,000 people — removes population-size bias so you can compare across eras"
+            >
+              {normalize && <span aria-hidden>✓</span>}
+              per 100K births
+            </button>
+          </div>
+
+          {/* Additional views (show/hide secondary charts below) */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap',
+            paddingLeft: 8,
+            borderLeft: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+          }}>
+            <span style={{ fontSize: 11, color: subtleFg, marginRight: 3, letterSpacing: '0.03em' }}>
+              show below:
+            </span>
+            <button
+              style={toggleChip(showYoY)}
+              onClick={() => setShowYoY(v => !v)}
+              title="Add a year-over-year % change chart below the main chart — shows how quickly a name's popularity is rising or falling each year"
+            >
+              {showYoY && <span aria-hidden>✓</span>}
+              YoY % change
+            </button>
+            <button
+              style={toggleChip(showStats)}
+              onClick={() => setShowStats(v => !v)}
+              title="Add a statistics table below — shows peak year, peak count, total births, and recent trend for each name"
+            >
+              {showStats && <span aria-hidden>✓</span>}
+              name stats
+            </button>
+            <button
+              style={toggleChip(showDecades)}
+              onClick={() => setShowDecades(v => !v)}
+              title="Add a bar chart below that groups total births by decade — useful for seeing long-run rise and fall patterns"
+            >
+              {showDecades && <span aria-hidden>✓</span>}
+              by decade
+            </button>
+          </div>
+
           <button
             onClick={handleLoadInteresting}
             style={{ ...textBtn, color: isDark ? 'rgba(120,160,255,0.8)' : '#2563eb', marginLeft: 'auto' }}
