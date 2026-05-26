@@ -11,8 +11,6 @@ import interestingNames from './interestingNames';
 
 interface ChunkInfo {
   filename: string;
-  startYear: number;
-  endYear: number;
 }
 
 interface Manifest {

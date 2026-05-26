@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
 // Create chunks directory if it doesn't exist
@@ -15,13 +15,6 @@ const chunkFiles = [
   'chunk-1981-2000.json',
   'chunk-2001-2025.json'
 ];
-
-// Combine all chunks
-const combinedData = {};
-chunkFiles.forEach(chunkFile => {
-  const chunkData = JSON.parse(readFileSync(join(chunksDir, chunkFile), 'utf8'));
-  Object.assign(combinedData, chunkData);
-});
 
 // Write manifest
 const manifest = {

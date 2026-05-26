@@ -1,6 +1,6 @@
 import type { NameData, NameSelection } from '../types';
 
-export const PALETTE = [
+const PALETTE = [
   'hsl(211, 60%, 48%)',
   'hsl(27, 65%, 48%)',
   'hsl(150, 50%, 38%)',
@@ -17,7 +17,7 @@ export function withAlpha(color: string, alpha: number): string {
 
 export type TimeSeriesPoint = { x: number; y: number | null; label: string };
 
-export interface TimeSeries {
+interface TimeSeries {
   label: string;
   color: string;
   points: TimeSeriesPoint[];
