@@ -238,7 +238,7 @@ const NameChart = forwardRef(function NameChart(
         backgroundColor: 'transparent',
         tension: 0,
         pointRadius: 0,
-        pointHoverRadius: 4,
+        pointHoverRadius: 0,
         pointHitRadius: 10,
         fill: false,
       };
@@ -482,7 +482,108 @@ const NameChart = forwardRef(function NameChart(
       },
     };
 
-    return [directLabelPlugin, rangeFramePlugin, peakLabelPlugin, histAnnotationsPlugin];
+    const cursorPlugin: Plugin<'line'> = {
+      id: 'cursor',
+      afterDraw(chart) {
+        const active = chart.getActiveElements();
+        if (active.length === 0) return;
+
+        const { ctx, chartArea } = chart;
+        if (!chartArea) return;
+
+        const dataIndex = active[0].index;
+
+        // Get x pixel from first visible dataset element
+        let xPixel: number | null = null;
+        for (let i = 0; i < chart.data.datasets.length; i++) {
+          const meta = chart.getDatasetMeta(i);
+          if (!meta.hidden && meta.data[dataIndex]) {
+            xPixel = (meta.data[dataIndex] as unknown as { x: number; y: number }).x;
+            break;
+          }
+        }
+        if (xPixel === null || xPixel < chartArea.left - 1 || xPixel > chartArea.right + 1) return;
+
+        ctx.save();
+
+        // Vertical cursor rule
+        ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.13)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(xPixel, chartArea.top);
+        ctx.lineTo(xPixel, chartArea.bottom);
+        ctx.stroke();
+
+        // Collect one label per visible series with real data at this index
+        type CItem = { yPixel: number; origY: number; color: string; text: string };
+        const items: CItem[] = [];
+
+        chart.data.datasets.forEach((dataset, i) => {
+          const meta = chart.getDatasetMeta(i);
+          if (meta.hidden) return;
+          const pt = dataset.data[dataIndex] as unknown as DataPoint;
+          if (!pt || pt.y === null || pt.label === '' || pt.label === '< 5') return;
+          const el = meta.data[dataIndex] as unknown as { x: number; y: number } | undefined;
+          if (!el) return;
+          const yPixel = el.y;
+          if (yPixel < chartArea.top - 1 || yPixel > chartArea.bottom + 1) return;
+          items.push({ yPixel, origY: yPixel, color: dataset.borderColor as string, text: pt.label });
+        });
+
+        if (items.length > 0) {
+          // Resolve vertical collisions by nudging down
+          items.sort((a, b) => a.yPixel - b.yPixel);
+          const MIN_GAP = 14;
+          for (let i = 1; i < items.length; i++) {
+            if (items[i].yPixel < items[i - 1].yPixel + MIN_GAP) {
+              items[i].yPixel = items[i - 1].yPixel + MIN_GAP;
+            }
+          }
+          for (let i = items.length - 1; i >= 0; i--) {
+            if (items[i].yPixel > chartArea.bottom - 2) items[i].yPixel = chartArea.bottom - 2;
+          }
+
+          const nearRight = xPixel > chartArea.right - 90;
+          const lx = nearRight ? xPixel - 7 : xPixel + 7;
+          ctx.font = '11px Inter, system-ui, sans-serif';
+
+          items.forEach(({ yPixel, origY, color, text }) => {
+            // Dot at actual data y-position on the cursor line
+            ctx.beginPath();
+            ctx.arc(xPixel!, origY, 3, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            // Value label in series color, at collision-resolved y
+            ctx.textAlign = nearRight ? 'right' : 'left';
+            ctx.fillStyle = color;
+            ctx.fillText(text, lx, yPixel + 4);
+          });
+        }
+
+        // Year chip in the x-axis area
+        let xVal: number | null = null;
+        for (const ds of chart.data.datasets) {
+          const pt = ds.data[dataIndex] as unknown as DataPoint;
+          if (pt?.x != null) { xVal = pt.x; break; }
+        }
+        if (xVal != null) {
+          const yearStr = String(xVal);
+          ctx.font = '11px Inter, system-ui, sans-serif';
+          const tw = ctx.measureText(yearStr).width;
+          const bgX = xPixel - tw / 2 - 3;
+          const bgY = chartArea.bottom + 3;
+          ctx.fillStyle = isDark ? 'rgba(26,27,30,0.92)' : 'rgba(255,255,255,0.92)';
+          ctx.fillRect(bgX, bgY, tw + 6, 14);
+          ctx.textAlign = 'center';
+          ctx.fillStyle = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)';
+          ctx.fillText(yearStr, xPixel, bgY + 11);
+        }
+
+        ctx.restore();
+      },
+    };
+
+    return [directLabelPlugin, rangeFramePlugin, peakLabelPlugin, histAnnotationsPlugin, cursorPlugin];
   }, [isDark, showAnnotations]);
 
   const options: ChartOptions<'line'> = {
@@ -536,25 +637,7 @@ const NameChart = forwardRef(function NameChart(
     plugins: {
       legend: { display: false },
       title: { display: false },
-      tooltip: {
-        enabled: true,
-        mode: 'index',
-        intersect: false,
-        filter: (item) => {
-          // Suppress silent pre-appearance entries (y=null, label='')
-          const pt = item.dataset.data[item.dataIndex] as unknown as DataPoint;
-          return pt.y !== null || pt.label === '< 5';
-        },
-        callbacks: {
-          title: (context) => `Year: ${context[0].parsed.x}`,
-          label: (context) => {
-            const label = context.dataset.label || '';
-            const point = context.dataset.data[context.dataIndex] as unknown as DataPoint;
-            if (point.y === null) return `${label}: < 5`;
-            return `${label}: ${point.label || context.parsed.y.toLocaleString()}`;
-          },
-        },
-      },
+      tooltip: { enabled: false },
       zoom: {
         pan: { enabled: true, mode: 'x', modifierKey: 'shift' },
         zoom: {
