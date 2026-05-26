@@ -21,22 +21,47 @@ function App() {
   const [selectedNames, setSelectedNames] = useState<NameSelection[]>([]);
   const [copySuccess, setCopySuccess] = useState(false);
   const [loading, setLoading] = useState(true);
-  const { colorScheme } = useMantineColorScheme();
+  const [yearRange, setYearRange] = useState<[number, number]>([1880, 2022]);
+  const [yearStart, setYearStart] = useState('1880');
+  const [yearEnd, setYearEnd] = useState('2022');
+  const [normalize, setNormalize] = useState(false);
+  const [showAnnotations, setShowAnnotations] = useState(false);
+  const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const nameChartRef = useRef<any>(null);
 
   const isDark = colorScheme === 'dark';
   const bg = isDark ? '#1a1b1e' : '#ffffff';
   const fg = isDark ? '#e8e8e8' : '#1a1a1a';
+  const subtleFg = isDark ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.32)';
 
   const textBtn: CSSProperties = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
     fontSize: 12,
-    color: isDark ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.32)',
+    color: subtleFg,
     padding: 0,
     fontFamily: 'inherit',
     letterSpacing: '0.01em',
+  };
+
+  const activeTextBtn: CSSProperties = {
+    ...textBtn,
+    color: isDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.65)',
+    fontWeight: 600,
+  };
+
+  const yearInput: CSSProperties = {
+    width: 52,
+    border: 'none',
+    borderBottom: `1px solid ${subtleFg}`,
+    background: 'transparent',
+    color: fg,
+    fontFamily: 'inherit',
+    fontSize: 12,
+    textAlign: 'center',
+    padding: '1px 2px',
+    outline: 'none',
   };
 
   // Load state from URL on mount
@@ -90,8 +115,24 @@ function App() {
         setLoading(false);
       }
     }
+
     loadData();
   }, []);
+
+  // Total births per year across the entire dataset (for per-capita normalization)
+  const birthTotals = useMemo(() => {
+    if (!data) return {};
+    const totals: Record<string, number> = {};
+    Object.values(data).forEach(({ M, F }) => {
+      Object.entries(M || {}).forEach(([year, count]) => {
+        totals[year] = (totals[year] || 0) + count;
+      });
+      Object.entries(F || {}).forEach(([year, count]) => {
+        totals[year] = (totals[year] || 0) + count;
+      });
+    });
+    return totals;
+  }, [data]);
 
   const handleCopyLink = async () => {
     const hash = encodeURIComponent(JSON.stringify({ names: selectedNames }));
@@ -115,6 +156,25 @@ function App() {
     setSelectedNames(selectedNames.filter((_, i) => i !== index));
   };
 
+  const handleYearStart = (val: string) => {
+    setYearStart(val);
+    const n = parseInt(val);
+    if (!isNaN(n) && n >= 1880 && n <= 2022 && n <= yearRange[1]) {
+      setYearRange([n, yearRange[1]]);
+      nameChartRef.current?.resetZoom();
+    }
+  };
+
+  const handleYearEnd = (val: string) => {
+    setYearEnd(val);
+    const n = parseInt(val);
+    if (!isNaN(n) && n >= 1880 && n <= 2022 && n >= yearRange[0]) {
+      setYearRange([yearRange[0], n]);
+      nameChartRef.current?.resetZoom();
+    }
+  };
+
+  // Shuffle interestingNames once at page load
   const shuffledInteresting = useMemo(() => {
     const arr = [...interestingNames];
     for (let i = arr.length - 1; i > 0; i--) {
@@ -182,6 +242,9 @@ function App() {
           Baby Name Trends
         </span>
         <span style={{ flex: 1 }} />
+        <button onClick={toggleColorScheme} style={textBtn} title="Toggle dark/light mode">
+          {isDark ? 'light' : 'dark'}
+        </button>
         {selectedNames.length > 0 && (
           <>
             <button onClick={handleCopyLink} style={textBtn}>
@@ -214,6 +277,49 @@ function App() {
         )}
       </div>
 
+      {/* ── Chart controls ──────────────────────────────────────── */}
+      <div style={{
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16,
+        padding: '0 20px 4px',
+        flexWrap: 'wrap',
+      }}>
+        <span style={{ fontSize: 12, color: subtleFg }}>
+          Years:{' '}
+          <input
+            type="number"
+            value={yearStart}
+            min={1880}
+            max={2022}
+            onChange={e => handleYearStart(e.target.value)}
+            style={yearInput}
+          />
+          {' '}–{' '}
+          <input
+            type="number"
+            value={yearEnd}
+            min={1880}
+            max={2022}
+            onChange={e => handleYearEnd(e.target.value)}
+            style={yearInput}
+          />
+        </span>
+        <button
+          style={showAnnotations ? activeTextBtn : textBtn}
+          onClick={() => setShowAnnotations(v => !v)}
+        >
+          {showAnnotations ? 'events on' : 'events'}
+        </button>
+        <button
+          style={normalize ? activeTextBtn : textBtn}
+          onClick={() => setNormalize(v => !v)}
+        >
+          {normalize ? 'per 100K on' : 'per 100K'}
+        </button>
+      </div>
+
       {/* ── Chart ───────────────────────────────────────────────── */}
       <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'hidden' }}>
         <div style={{
@@ -229,7 +335,10 @@ function App() {
             ref={nameChartRef}
             data={data}
             selectedNames={selectedNames}
-            yearRange={[1880, 2022]}
+            yearRange={yearRange}
+            normalize={normalize}
+            birthTotals={birthTotals}
+            showAnnotations={showAnnotations}
           />
         </div>
       </div>
