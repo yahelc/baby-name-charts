@@ -527,13 +527,14 @@ const NameChart = forwardRef(function NameChart(
           if (!el) return;
           const yPixel = el.y;
           if (yPixel < chartArea.top - 1 || yPixel > chartArea.bottom + 1) return;
-          items.push({ yPixel, origY: yPixel, color: dataset.borderColor as string, text: pt.label });
+          const nameLabel = (dataset.label || '').length > 22 ? (dataset.label || '').slice(0, 20) + '…' : (dataset.label || '');
+          items.push({ yPixel, origY: yPixel, color: dataset.borderColor as string, text: `${nameLabel}: ${pt.label}` });
         });
 
         if (items.length > 0) {
           // Resolve vertical collisions by nudging down
           items.sort((a, b) => a.yPixel - b.yPixel);
-          const MIN_GAP = 14;
+          const MIN_GAP = 15;
           for (let i = 1; i < items.length; i++) {
             if (items[i].yPixel < items[i - 1].yPixel + MIN_GAP) {
               items[i].yPixel = items[i - 1].yPixel + MIN_GAP;
@@ -543,7 +544,7 @@ const NameChart = forwardRef(function NameChart(
             if (items[i].yPixel > chartArea.bottom - 2) items[i].yPixel = chartArea.bottom - 2;
           }
 
-          const nearRight = xPixel > chartArea.right - 90;
+          const nearRight = xPixel > chartArea.right - 160;
           const lx = nearRight ? xPixel - 7 : xPixel + 7;
           ctx.font = '11px Inter, system-ui, sans-serif';
 
