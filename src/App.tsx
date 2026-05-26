@@ -4,6 +4,9 @@ import type { CSSProperties } from 'react';
 import type { NameData, NameSelection } from './types';
 import NameSearch from './components/NameSearch';
 import NameChart from './components/NameChart';
+import NameStats from './components/NameStats';
+import YoYChart from './components/YoYChart';
+import DecadeSummary from './components/DecadeSummary';
 import interestingNames from './interestingNames';
 
 interface ChunkInfo {
@@ -26,6 +29,9 @@ function App() {
   const [yearEnd, setYearEnd] = useState('2022');
   const [normalize, setNormalize] = useState(false);
   const [showAnnotations, setShowAnnotations] = useState(false);
+  const [showYoY, setShowYoY] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [showDecades, setShowDecades] = useState(false);
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const nameChartRef = useRef<any>(null);
 
@@ -306,6 +312,24 @@ function App() {
           >
             {normalize ? 'per 100K ✓' : 'per 100K'}
           </button>
+          <button
+            style={showYoY ? activeTextBtn : textBtn}
+            onClick={() => setShowYoY(v => !v)}
+          >
+            {showYoY ? '% change ✓' : '% change'}
+          </button>
+          <button
+            style={showStats ? activeTextBtn : textBtn}
+            onClick={() => setShowStats(v => !v)}
+          >
+            {showStats ? 'stats ✓' : 'stats'}
+          </button>
+          <button
+            style={showDecades ? activeTextBtn : textBtn}
+            onClick={() => setShowDecades(v => !v)}
+          >
+            {showDecades ? 'by decade ✓' : 'by decade'}
+          </button>
           {selectedNames.length === 0 && (
             <button
               onClick={handleLoadInteresting}
@@ -317,28 +341,75 @@ function App() {
         </div>
       </div>
 
-      {/* ── Chart ───────────────────────────────────────────────── */}
-      <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'hidden' }}>
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          padding: '4px 24px 0',
-          boxSizing: 'border-box',
-        }}>
-          <NameChart
-            ref={nameChartRef}
-            data={data}
-            selectedNames={selectedNames}
-            yearRange={yearRange}
-            normalize={normalize}
-            birthTotals={birthTotals}
-            showAnnotations={showAnnotations}
-          />
-        </div>
-      </div>
+      {/* ── Chart + Analytics ───────────────────────────────────── */}
+      {(() => {
+        const hasAnalytics = (showYoY || showStats || showDecades) && selectedNames.length > 0;
+        return (
+          <div style={{
+            flex: '1 1 0',
+            minHeight: 0,
+            overflow: hasAnalytics ? 'auto' : 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: hasAnalytics ? 16 : 0,
+          }}>
+            <div style={{
+              flex: hasAnalytics ? '0 0 auto' : '1 1 0',
+              height: hasAnalytics ? '50vh' : undefined,
+              minHeight: 180,
+              position: 'relative',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                padding: '4px 24px 0',
+                boxSizing: 'border-box',
+              }}>
+                <NameChart
+                  ref={nameChartRef}
+                  data={data}
+                  selectedNames={selectedNames}
+                  yearRange={yearRange}
+                  normalize={normalize}
+                  birthTotals={birthTotals}
+                  showAnnotations={showAnnotations}
+                />
+              </div>
+            </div>
+            {showYoY && selectedNames.length > 0 && (
+              <YoYChart
+                data={data}
+                selectedNames={selectedNames}
+                yearRange={yearRange}
+                normalize={normalize}
+                birthTotals={birthTotals}
+              />
+            )}
+            {showStats && selectedNames.length > 0 && (
+              <NameStats
+                data={data}
+                selectedNames={selectedNames}
+                yearRange={yearRange}
+                normalize={normalize}
+                birthTotals={birthTotals}
+              />
+            )}
+            {showDecades && selectedNames.length > 0 && (
+              <DecadeSummary
+                data={data}
+                selectedNames={selectedNames}
+                yearRange={yearRange}
+                normalize={normalize}
+                birthTotals={birthTotals}
+              />
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── Footer ──────────────────────────────────────────────── */}
       <footer style={{
