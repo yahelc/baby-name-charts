@@ -158,6 +158,46 @@ const interestingNames: { names: { name: string; gender: 'M' | 'F' }[] }[] = [
           { name: 'Riley', gender: 'M' },
         ],
       },
+
+      // The Adolph Cliff — ordinary name until 1933, then a cliff edge
+      { names: [{ name: 'Adolph', gender: 'M' }] },
+
+      // The Jennifer Mountain — dominated the 1970s–80s, then free-fall
+      { names: [{ name: 'Jennifer', gender: 'F' }] },
+
+      // The -ayden Invasion — rhyming name fad that swept the 2000s simultaneously
+      {
+        names: [
+          { name: 'Jayden', gender: 'M' },
+          { name: 'Aiden', gender: 'M' },
+          { name: 'Brayden', gender: 'M' },
+          { name: 'Hayden', gender: 'M' },
+          { name: 'Kayden', gender: 'M' },
+        ],
+      },
+
+      // Mary's Century-Long Abdication — #1 female name for decades, then 60 years of decline
+      { names: [{ name: 'Mary', gender: 'F' }] },
+
+      // The Frozen Effect — three pop-culture spikes: Little Mermaid, Harry Potter, Frozen
+      {
+        names: [
+          { name: 'Ariel', gender: 'F' },
+          { name: 'Hermione', gender: 'F' },
+          { name: 'Elsa', gender: 'F' },
+        ],
+      },
+
+      // The Old Man Comeback — bottomed out in the 1980s–90s, then surged back
+      {
+        names: [
+          { name: 'Henry', gender: 'M' },
+          { name: 'Walter', gender: 'M' },
+          { name: 'Arthur', gender: 'M' },
+          { name: 'Theodore', gender: 'M' },
+          { name: 'Oliver', gender: 'M' },
+        ],
+      },
   ];
   
 export default interestingNames; 
