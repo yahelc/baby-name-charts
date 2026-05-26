@@ -149,9 +149,11 @@ const NameChart = forwardRef(function NameChart(
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
 
+  // Only store identity (which dataset + which year). Values are resolved from
+  // current chartData at render time so they stay correct when normalize/range changes.
   const [persistentTooltip, setPersistentTooltip] = useState<
     | null
-    | { datasetIndex: number; index: number; dataX: number; dataY: number; label: string; value: string }
+    | { datasetIndex: number; dataX: number }
   >(null);
 
   // Track container width to decide label padding and visibility
@@ -244,13 +246,24 @@ const NameChart = forwardRef(function NameChart(
 
   const handleResetZoom = () => { chartRef.current?.resetZoom(); };
 
+  const resolveTooltipPoint = (tooltip: NonNullable<typeof persistentTooltip>) => {
+    const ds = chartData.datasets[tooltip.datasetIndex];
+    if (!ds) return null;
+    const pt = (ds.data as unknown as DataPoint[]).find(p => p.x === tooltip.dataX);
+    if (!pt || pt.y == null) return null;
+    return { pt, ds };
+  };
+
   const drawTooltipOnCanvas = (chart: ChartJS<'line'>, tooltip: typeof persistentTooltip) => {
     if (!chart || !tooltip) return;
+    const resolved = resolveTooltipPoint(tooltip);
+    if (!resolved) return;
+    const { pt, ds } = resolved;
     const ctx = chart.ctx;
     ctx.save();
     const boxWidth = 120, boxHeight = 36;
     const x = chart.scales.x.getPixelForValue(tooltip.dataX) + 12;
-    const y = chart.scales.y.getPixelForValue(tooltip.dataY) - boxHeight / 2;
+    const y = chart.scales.y.getPixelForValue(pt.y) - boxHeight / 2;
     ctx.globalAlpha = 0.95;
     ctx.fillStyle = '#212529';
     ctx.strokeStyle = '#222';
@@ -267,31 +280,32 @@ const NameChart = forwardRef(function NameChart(
     ctx.closePath();
     ctx.fillStyle = '#212529';
     ctx.fill();
-    const pt = chartData.datasets[tooltip.datasetIndex].data[tooltip.index] as unknown as DataPoint;
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 12px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(`Year: ${pt.x}`, x + 10, y + 14);
     ctx.beginPath();
     ctx.arc(x + 12, y + 26, 4, 0, 2 * Math.PI);
-    ctx.fillStyle = chartData.datasets[tooltip.datasetIndex].borderColor as string;
+    ctx.fillStyle = ds.borderColor as string;
     ctx.fill();
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = '#fff';
     ctx.font = '12px sans-serif';
-    ctx.fillText(`${chartData.datasets[tooltip.datasetIndex].label}: ${pt.label}`, x + 22, y + 29);
+    ctx.fillText(`${ds.label}: ${pt.label}`, x + 22, y + 29);
     ctx.restore();
   };
 
   const clearTooltipOnCanvas = (chart: ChartJS<'line'>, tooltip: typeof persistentTooltip) => {
     if (!chart || !tooltip) return;
+    const resolved = resolveTooltipPoint(tooltip);
+    if (!resolved) return;
     const ctx = chart.ctx;
     ctx.save();
     const boxWidth = 120, boxHeight = 36;
     const x = chart.scales.x.getPixelForValue(tooltip.dataX) + 12;
-    const y = chart.scales.y.getPixelForValue(tooltip.dataY) - boxHeight / 2;
+    const y = chart.scales.y.getPixelForValue(resolved.pt.y!) - boxHeight / 2;
     ctx.clearRect(x - 2, y - 2, boxWidth + 4, boxHeight + 4);
     ctx.restore();
     chart.update();
@@ -472,7 +486,7 @@ const NameChart = forwardRef(function NameChart(
     layout: {
       padding: { right: labelPadRight, top: 4 },
     },
-    interaction: { mode: 'index', intersect: false },
+    interaction: { mode: 'x', intersect: false },
     scales: {
       x: {
         type: 'linear',
@@ -519,7 +533,7 @@ const NameChart = forwardRef(function NameChart(
       title: { display: false },
       tooltip: {
         enabled: true,
-        mode: 'index',
+        mode: 'x',
         intersect: false,
         callbacks: {
           title: (context) => `Year: ${context[0].parsed.x}`,
@@ -555,23 +569,13 @@ const NameChart = forwardRef(function NameChart(
     const points = chartInstance.getElementsAtEventForMode(event.nativeEvent, 'nearest', { intersect: true }, true);
     if (points.length > 0) {
       const { datasetIndex, index } = points[0];
-      const meta = chartInstance.getDatasetMeta(datasetIndex);
-      const pointAny = meta.data[index] as any;
-      let dataX: number, dataY: number;
-      if (pointAny.$context?.parsed) {
-        dataX = pointAny.$context.parsed.x;
-        dataY = pointAny.$context.parsed.y;
-      } else {
-        const d = chartData.datasets[datasetIndex].data[index] as unknown as DataPoint;
-        dataX = d.x;
-        dataY = d.y ?? 0;
-      }
-      const label = chartData.datasets[datasetIndex].label || '';
-      const pt = chartData.datasets[datasetIndex].data[index] as unknown as DataPoint;
-      if (persistentTooltip?.datasetIndex === datasetIndex && persistentTooltip?.index === index) {
+      const pt = chartData.datasets[datasetIndex]?.data[index] as unknown as DataPoint;
+      if (!pt) return;
+      const dataX = pt.x;
+      if (persistentTooltip?.datasetIndex === datasetIndex && persistentTooltip?.dataX === dataX) {
         setPersistentTooltip(null);
       } else {
-        setPersistentTooltip({ datasetIndex, index, dataX, dataY, label, value: pt.label || '' });
+        setPersistentTooltip({ datasetIndex, dataX });
       }
     }
   };
@@ -622,10 +626,12 @@ const NameChart = forwardRef(function NameChart(
 
         {/* Persistent click tooltip */}
         {persistentTooltip && chartRef.current && (() => {
+          const resolved = resolveTooltipPoint(persistentTooltip);
+          if (!resolved) return null;
+          const { pt, ds } = resolved;
           const chart = chartRef.current;
           const px = chart.scales.x.getPixelForValue(persistentTooltip.dataX);
-          const py = chart.scales.y.getPixelForValue(persistentTooltip.dataY);
-          const pt = chartData.datasets[persistentTooltip.datasetIndex].data[persistentTooltip.index] as unknown as DataPoint;
+          const py = chart.scales.y.getPixelForValue(pt.y!);
           return (
             <div style={{
               position: 'absolute',
@@ -658,11 +664,11 @@ const NameChart = forwardRef(function NameChart(
                   width: 7,
                   height: 7,
                   borderRadius: '50%',
-                  background: chartData.datasets[persistentTooltip.datasetIndex].borderColor as string,
+                  background: ds.borderColor as string,
                   flexShrink: 0,
                 }} />
                 <span style={{ fontWeight: 600, fontSize: 12 }}>
-                  {persistentTooltip.label}: {persistentTooltip.value}
+                  {ds.label}: {pt.label}
                 </span>
               </div>
             </div>
