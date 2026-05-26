@@ -503,7 +503,11 @@ const NameChart = forwardRef(function NameChart(
           color: tickColor,
         },
         ticks: {
-          callback: (v) => normalize ? Number(v).toFixed(1) : Number(v).toLocaleString(),
+          callback: (v) => {
+            const n = Number(v);
+            if (normalize) return n % 1 === 0 ? n.toLocaleString() : n.toFixed(1);
+            return n.toLocaleString();
+          },
           font: { size: 11, family: 'Inter, system-ui, sans-serif' },
           color: tickColor,
         },

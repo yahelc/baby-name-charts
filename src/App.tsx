@@ -225,99 +225,96 @@ function App() {
     }}>
 
       {/* ── Header ──────────────────────────────────────────────── */}
-      <div style={{
+      <header style={{
         flexShrink: 0,
         display: 'flex',
-        alignItems: 'center',
-        padding: '14px 20px 8px',
-        gap: 14,
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        padding: '20px 24px 16px',
+        borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
       }}>
-        <span style={{
-          fontSize: 12,
-          fontWeight: 600,
-          letterSpacing: '0.07em',
-          textTransform: 'uppercase',
-          opacity: 0.5,
-        }}>
-          Baby Name Trends
-        </span>
-        <span style={{ flex: 1 }} />
-        <button onClick={toggleColorScheme} style={textBtn} title="Toggle dark/light mode">
-          {isDark ? 'light' : 'dark'}
-        </button>
-        {selectedNames.length > 0 && (
-          <>
-            <button onClick={handleCopyLink} style={textBtn}>
-              {copySuccess ? 'copied!' : 'copy link'}
-            </button>
-            <button onClick={handleClear} style={textBtn}>
-              clear
-            </button>
-          </>
-        )}
-      </div>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.1 }}>
+            Baby Name Trends
+          </div>
+          <div style={{ fontSize: 12, color: subtleFg, marginTop: 5, letterSpacing: '0.01em' }}>
+            US births by name, 1880–2022 · Social Security Administration
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, paddingTop: 3 }}>
+          <button onClick={toggleColorScheme} style={textBtn} title="Toggle dark/light mode">
+            {isDark ? 'light' : 'dark'}
+          </button>
+          {selectedNames.length > 0 && (
+            <>
+              <button onClick={handleCopyLink} style={textBtn}>
+                {copySuccess ? 'copied!' : 'copy link'}
+              </button>
+              <button onClick={handleClear} style={textBtn}>
+                clear
+              </button>
+            </>
+          )}
+        </div>
+      </header>
 
-      {/* ── Search ──────────────────────────────────────────────── */}
-      <div style={{ flexShrink: 0, padding: '0 20px 6px' }}>
+      {/* ── Search + controls ───────────────────────────────────── */}
+      <div style={{
+        flexShrink: 0,
+        padding: '16px 24px 12px',
+        borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+      }}>
         <NameSearch
           data={data}
           selectedNames={selectedNames}
           onSelectionChange={setSelectedNames}
           onRemoveName={handleRemoveName}
         />
-        {selectedNames.length === 0 && (
-          <div style={{ marginTop: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: subtleFg }}>
+            Years:{' '}
+            <input
+              type="number"
+              value={yearStart}
+              min={1880}
+              max={2022}
+              onChange={e => handleYearStart(e.target.value)}
+              style={yearInput}
+            />
+            {' '}–{' '}
+            <input
+              type="number"
+              value={yearEnd}
+              min={1880}
+              max={2022}
+              onChange={e => handleYearEnd(e.target.value)}
+              style={yearInput}
+            />
+          </span>
+          <button
+            style={showAnnotations ? activeTextBtn : textBtn}
+            onClick={() => setShowAnnotations(v => !v)}
+          >
+            {showAnnotations ? 'events ✓' : 'events'}
+          </button>
+          <button
+            style={normalize ? activeTextBtn : textBtn}
+            onClick={() => setNormalize(v => !v)}
+          >
+            {normalize ? 'per 100K ✓' : 'per 100K'}
+          </button>
+          {selectedNames.length === 0 && (
             <button
               onClick={handleLoadInteresting}
-              style={{ ...textBtn, color: '#228be6', fontSize: 12 }}
+              style={{ ...textBtn, color: isDark ? 'rgba(120,160,255,0.8)' : '#2563eb', marginLeft: 'auto' }}
             >
-              Try an interesting name →
+              try an interesting name →
             </button>
-          </div>
-        )}
-      </div>
-
-      {/* ── Chart controls ──────────────────────────────────────── */}
-      <div style={{
-        flexShrink: 0,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 16,
-        padding: '0 20px 4px',
-        flexWrap: 'wrap',
-      }}>
-        <span style={{ fontSize: 12, color: subtleFg }}>
-          Years:{' '}
-          <input
-            type="number"
-            value={yearStart}
-            min={1880}
-            max={2022}
-            onChange={e => handleYearStart(e.target.value)}
-            style={yearInput}
-          />
-          {' '}–{' '}
-          <input
-            type="number"
-            value={yearEnd}
-            min={1880}
-            max={2022}
-            onChange={e => handleYearEnd(e.target.value)}
-            style={yearInput}
-          />
-        </span>
-        <button
-          style={showAnnotations ? activeTextBtn : textBtn}
-          onClick={() => setShowAnnotations(v => !v)}
-        >
-          {showAnnotations ? 'events on' : 'events'}
-        </button>
-        <button
-          style={normalize ? activeTextBtn : textBtn}
-          onClick={() => setNormalize(v => !v)}
-        >
-          {normalize ? 'per 100K on' : 'per 100K'}
-        </button>
+          )}
+        </div>
       </div>
 
       {/* ── Chart ───────────────────────────────────────────────── */}
@@ -328,7 +325,7 @@ function App() {
           left: 0,
           right: 0,
           bottom: 0,
-          padding: '4px 20px 0',
+          padding: '4px 24px 0',
           boxSizing: 'border-box',
         }}>
           <NameChart
@@ -346,18 +343,24 @@ function App() {
       {/* ── Footer ──────────────────────────────────────────────── */}
       <footer style={{
         flexShrink: 0,
-        padding: '6px 20px 10px',
+        padding: '10px 24px 14px',
+        borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 8,
         fontSize: 11,
         color: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.28)',
       }}>
-        by Yahel Carmon · data:{' '}
+        <span>by Yahel Carmon</span>
         <a
           href="https://www.ssa.gov/oact/babynames/limits.html"
           target="_blank"
           rel="noreferrer"
           style={{ color: 'inherit', textDecoration: 'underline' }}
         >
-          SSA
+          Social Security Administration data
         </a>
       </footer>
     </div>
