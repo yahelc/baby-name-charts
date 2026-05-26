@@ -213,17 +213,22 @@ const NameChart = forwardRef(function NameChart(
           count = data[name]?.[gender]?.[yearStr] || 0;
         }
 
-        // Years after first appearance with no SSA data: gap, not false zero
-        if (year >= firstYear && count === 0) return { x: year, y: null, label: '< 5' };
+        // Before the name first appeared: silent null (hidden from tooltip)
+        if (year < firstYear) return { x: year, y: null, label: '' };
 
-        if (normalize && count > 0) {
+        // After first appearance with no SSA data: labeled gap
+        if (count === 0) return { x: year, y: null, label: '< 5' };
+
+        if (normalize) {
           const total = birthTotals[yearStr] || 1;
           const per100k = (count / total) * 100_000;
           return { x: year, y: per100k, label: per100k.toFixed(1) };
         }
 
         return { x: year, y: count, label: count.toLocaleString() };
-      }).filter(point => point.y !== null ? point.y > 0 : true);
+      });
+      // All years kept (some as null) so every dataset is the same length —
+      // this is required for mode:'index' to align datasets by year correctly.
 
       const color = PALETTE[index % PALETTE.length];
       return {
@@ -486,7 +491,7 @@ const NameChart = forwardRef(function NameChart(
     layout: {
       padding: { right: labelPadRight, top: 4 },
     },
-    interaction: { mode: 'x', intersect: false },
+    interaction: { mode: 'index', intersect: false },
     scales: {
       x: {
         type: 'linear',
@@ -533,8 +538,13 @@ const NameChart = forwardRef(function NameChart(
       title: { display: false },
       tooltip: {
         enabled: true,
-        mode: 'x',
+        mode: 'index',
         intersect: false,
+        filter: (item) => {
+          // Suppress silent pre-appearance entries (y=null, label='')
+          const pt = item.dataset.data[item.dataIndex] as unknown as DataPoint;
+          return pt.y !== null || pt.label === '< 5';
+        },
         callbacks: {
           title: (context) => `Year: ${context[0].parsed.x}`,
           label: (context) => {
