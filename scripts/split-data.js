@@ -13,7 +13,7 @@ const chunkFiles = [
   'chunk-1941-1960.json',
   'chunk-1961-1980.json',
   'chunk-1981-2000.json',
-  'chunk-2001-2022.json'
+  'chunk-2001-2025.json'
 ];
 
 // Combine all chunks

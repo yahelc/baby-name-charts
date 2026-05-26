@@ -598,7 +598,7 @@ const NameChart = forwardRef(function NameChart(
             borderWidth: 1,
           },
         },
-        limits: { x: { min: 1880, max: 2022 } },
+        limits: { x: { min: 1880, max: 2025 } },
       },
     },
   };
