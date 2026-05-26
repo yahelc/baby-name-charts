@@ -306,14 +306,12 @@ function App() {
           >
             {normalize ? 'per 100K ✓' : 'per 100K'}
           </button>
-          {selectedNames.length === 0 && (
-            <button
-              onClick={handleLoadInteresting}
-              style={{ ...textBtn, color: isDark ? 'rgba(120,160,255,0.8)' : '#2563eb', marginLeft: 'auto' }}
-            >
-              try an interesting name →
-            </button>
-          )}
+          <button
+            onClick={handleLoadInteresting}
+            style={{ ...textBtn, color: isDark ? 'rgba(120,160,255,0.8)' : '#2563eb', marginLeft: 'auto' }}
+          >
+            try an interesting name →
+          </button>
         </div>
       </div>
 
