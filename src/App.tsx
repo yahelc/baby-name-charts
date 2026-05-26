@@ -24,9 +24,9 @@ function App() {
   const [selectedNames, setSelectedNames] = useState<NameSelection[]>([]);
   const [copySuccess, setCopySuccess] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [yearRange, setYearRange] = useState<[number, number]>([1880, 2022]);
+  const [yearRange, setYearRange] = useState<[number, number]>([1880, 2025]);
   const [yearStart, setYearStart] = useState('1880');
-  const [yearEnd, setYearEnd] = useState('2022');
+  const [yearEnd, setYearEnd] = useState('2025');
   const [normalize, setNormalize] = useState(false);
   const [showAnnotations, setShowAnnotations] = useState(false);
   const [showYoY, setShowYoY] = useState(false);
@@ -165,7 +165,7 @@ function App() {
   const handleYearStart = (val: string) => {
     setYearStart(val);
     const n = parseInt(val);
-    if (!isNaN(n) && n >= 1880 && n <= 2022 && n <= yearRange[1]) {
+    if (!isNaN(n) && n >= 1880 && n <= 2025 && n <= yearRange[1]) {
       setYearRange([n, yearRange[1]]);
       nameChartRef.current?.resetZoom();
     }
@@ -174,7 +174,7 @@ function App() {
   const handleYearEnd = (val: string) => {
     setYearEnd(val);
     const n = parseInt(val);
-    if (!isNaN(n) && n >= 1880 && n <= 2022 && n >= yearRange[0]) {
+    if (!isNaN(n) && n >= 1880 && n <= 2025 && n >= yearRange[0]) {
       setYearRange([yearRange[0], n]);
       nameChartRef.current?.resetZoom();
     }
@@ -244,7 +244,7 @@ function App() {
             Baby Name Trends
           </div>
           <div style={{ fontSize: 12, color: subtleFg, marginTop: 5, letterSpacing: '0.01em' }}>
-            US births by name, 1880–2022 · Social Security Administration
+            US births by name, 1880–2025 · Social Security Administration
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 20, paddingTop: 3 }}>
@@ -286,7 +286,7 @@ function App() {
               type="number"
               value={yearStart}
               min={1880}
-              max={2022}
+              max={2025}
               onChange={e => handleYearStart(e.target.value)}
               style={yearInput}
             />
@@ -295,7 +295,7 @@ function App() {
               type="number"
               value={yearEnd}
               min={1880}
-              max={2022}
+              max={2025}
               onChange={e => handleYearEnd(e.target.value)}
               style={yearInput}
             />
