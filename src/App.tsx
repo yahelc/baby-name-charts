@@ -151,12 +151,10 @@ function App() {
   };
 
   const handleClear = () => {
-    nameChartRef.current?.clearTooltip();
     setSelectedNames([]);
   };
 
   const handleRemoveName = (index: number) => {
-    nameChartRef.current?.clearTooltip();
     setSelectedNames(selectedNames.filter((_, i) => i !== index));
   };
 

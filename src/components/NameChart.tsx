@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useMemo, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import type { CSSProperties } from 'react';
 import {
   Chart as ChartJS,
@@ -11,7 +11,7 @@ import {
   Legend,
   type Plugin,
 } from 'chart.js';
-import type { ChartOptions, Chart as ChartType } from 'chart.js';
+import type { ChartOptions } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import type { NameData, NameSelection } from '../types';
@@ -139,13 +139,6 @@ const NameChart = forwardRef(function NameChart(
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Only store identity (which dataset + which year). Values are resolved from
-  // current chartData at render time so they stay correct when normalize/range changes.
-  const [persistentTooltip, setPersistentTooltip] = useState<
-    | null
-    | { datasetIndex: number; dataX: number }
-  >(null);
-
   // Track container width to decide label padding and visibility
   const [containerWidth, setContainerWidth] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth : 800
@@ -164,7 +157,6 @@ const NameChart = forwardRef(function NameChart(
   const labelPadRight = containerWidth < 480 ? 0 : containerWidth < 700 ? 72 : 120;
 
   useImperativeHandle(ref, () => ({
-    clearTooltip: () => setPersistentTooltip(null),
     resetZoom: () => { chartRef.current?.resetZoom(); },
   }), []);
 
@@ -188,71 +180,6 @@ const NameChart = forwardRef(function NameChart(
 
   const handleResetZoom = () => { chartRef.current?.resetZoom(); };
 
-  const resolveTooltipPoint = (tooltip: NonNullable<typeof persistentTooltip>) => {
-    const ds = chartData.datasets[tooltip.datasetIndex];
-    if (!ds) return null;
-    const pt = (ds.data as unknown as DataPoint[]).find(p => p.x === tooltip.dataX);
-    if (!pt || pt.y == null) return null;
-    return { pt, ds };
-  };
-
-  const drawTooltipOnCanvas = (chart: ChartJS<'line'>, tooltip: typeof persistentTooltip) => {
-    if (!chart || !tooltip) return;
-    const resolved = resolveTooltipPoint(tooltip);
-    if (!resolved) return;
-    const { pt, ds } = resolved;
-    const ctx = chart.ctx;
-    ctx.save();
-    const boxWidth = 120, boxHeight = 36;
-    const x = chart.scales.x.getPixelForValue(tooltip.dataX) + 12;
-    const y = chart.scales.y.getPixelForValue(pt.y) - boxHeight / 2;
-    ctx.globalAlpha = 0.95;
-    ctx.fillStyle = '#212529';
-    ctx.strokeStyle = '#222';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.rect(x, y, boxWidth, boxHeight);
-    ctx.fill();
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-    ctx.beginPath();
-    ctx.moveTo(x - 4, y + boxHeight / 2 - 4);
-    ctx.lineTo(x - 12, y + boxHeight / 2);
-    ctx.lineTo(x - 4, y + boxHeight / 2 + 4);
-    ctx.closePath();
-    ctx.fillStyle = '#212529';
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(`Year: ${pt.x}`, x + 10, y + 14);
-    ctx.beginPath();
-    ctx.arc(x + 12, y + 26, 4, 0, 2 * Math.PI);
-    ctx.fillStyle = ds.borderColor as string;
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.fillStyle = '#fff';
-    ctx.font = '12px sans-serif';
-    ctx.fillText(`${ds.label}: ${pt.label}`, x + 22, y + 29);
-    ctx.restore();
-  };
-
-  const clearTooltipOnCanvas = (chart: ChartJS<'line'>, tooltip: typeof persistentTooltip) => {
-    if (!chart || !tooltip) return;
-    const resolved = resolveTooltipPoint(tooltip);
-    if (!resolved) return;
-    const ctx = chart.ctx;
-    ctx.save();
-    const boxWidth = 120, boxHeight = 36;
-    const x = chart.scales.x.getPixelForValue(tooltip.dataX) + 12;
-    const y = chart.scales.y.getPixelForValue(resolved.pt.y!) - boxHeight / 2;
-    ctx.clearRect(x - 2, y - 2, boxWidth + 4, boxHeight + 4);
-    ctx.restore();
-    chart.update();
-  };
-
   const handleDownloadChart = () => {
     if (!chartRef.current) return;
     const ctx = chartRef.current.ctx;
@@ -261,24 +188,20 @@ const NameChart = forwardRef(function NameChart(
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, chartRef.current.width, chartRef.current.height);
     ctx.restore();
-    if (persistentTooltip) drawTooltipOnCanvas(chartRef.current, persistentTooltip);
     const link = document.createElement('a');
     link.download = 'baby-name-trends.png';
     link.href = chartRef.current.toBase64Image();
     link.click();
-    if (persistentTooltip) clearTooltipOnCanvas(chartRef.current, persistentTooltip);
   };
 
   const handleCopyChart = async () => {
     if (!chartRef.current) return;
-    if (persistentTooltip) drawTooltipOnCanvas(chartRef.current, persistentTooltip);
     try {
       const blob = await fetch(chartRef.current.toBase64Image()).then(r => r.blob());
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
     } catch (err) {
       console.error('Failed to copy chart:', err);
     }
-    if (persistentTooltip) clearTooltipOnCanvas(chartRef.current, persistentTooltip);
   };
 
   const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
@@ -603,23 +526,6 @@ const NameChart = forwardRef(function NameChart(
     },
   };
 
-  const handleChartClick = (event: any, chart?: ChartType<'line'>) => {
-    const chartInstance = chart || chartRef.current;
-    if (!chartInstance) return;
-    const points = chartInstance.getElementsAtEventForMode(event.nativeEvent, 'nearest', { intersect: true }, true);
-    if (points.length > 0) {
-      const { datasetIndex, index } = points[0];
-      const pt = chartData.datasets[datasetIndex]?.data[index] as unknown as DataPoint;
-      if (!pt) return;
-      const dataX = pt.x;
-      if (persistentTooltip?.datasetIndex === datasetIndex && persistentTooltip?.dataX === dataX) {
-        setPersistentTooltip(null);
-      } else {
-        setPersistentTooltip({ datasetIndex, dataX });
-      }
-    }
-  };
-
   const ctrlBtn: CSSProperties = {
     background: 'none',
     border: 'none',
@@ -641,7 +547,6 @@ const NameChart = forwardRef(function NameChart(
           data={chartData}
           options={options}
           plugins={chartPlugins}
-          onClick={handleChartClick}
         />
 
         {/* Empty state prompt */}
@@ -664,56 +569,6 @@ const NameChart = forwardRef(function NameChart(
           </div>
         )}
 
-        {/* Persistent click tooltip */}
-        {persistentTooltip && chartRef.current && (() => {
-          const resolved = resolveTooltipPoint(persistentTooltip);
-          if (!resolved) return null;
-          const { pt, ds } = resolved;
-          const chart = chartRef.current;
-          const px = chart.scales.x.getPixelForValue(persistentTooltip.dataX);
-          const py = chart.scales.y.getPixelForValue(pt.y!);
-          return (
-            <div style={{
-              position: 'absolute',
-              left: px + 12,
-              top: py - 18,
-              pointerEvents: 'none',
-              zIndex: 10,
-              background: 'rgba(33,37,41,0.95)',
-              color: '#fff',
-              borderRadius: 3,
-              fontSize: 12,
-              fontFamily: 'inherit',
-              padding: '4px 8px',
-              minWidth: 100,
-              boxShadow: '0 1px 6px rgba(0,0,0,0.18)',
-              border: '1px solid rgba(0,0,0,0.3)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-            }}>
-              <svg width="16" height="16" style={{ position: 'absolute', left: -16, top: 13, pointerEvents: 'none' }}>
-                <polygon points="16,4 0,8 16,12" fill="rgba(33,37,41,0.95)" />
-              </svg>
-              <div style={{ fontSize: 10, opacity: 0.7, marginBottom: 1 }}>
-                {pt.x}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{
-                  display: 'inline-block',
-                  width: 7,
-                  height: 7,
-                  borderRadius: '50%',
-                  background: ds.borderColor as string,
-                  flexShrink: 0,
-                }} />
-                <span style={{ fontWeight: 600, fontSize: 12 }}>
-                  {ds.label}: {pt.label}
-                </span>
-              </div>
-            </div>
-          );
-        })()}
       </div>
 
       {/* ── Controls ────────────────────────────────────────── */}
