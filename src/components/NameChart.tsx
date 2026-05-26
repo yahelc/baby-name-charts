@@ -478,7 +478,11 @@ const NameChart = forwardRef(function NameChart(
             }
           }
           for (let i = items.length - 1; i >= 0; i--) {
-            if (items[i].yPixel > chartArea.bottom - 2) items[i].yPixel = chartArea.bottom - 2;
+            if (items[i].yPixel > chartArea.bottom - 14) items[i].yPixel = chartArea.bottom - 14;
+          }
+          // Clamp top as well
+          for (let i = 0; i < items.length; i++) {
+            if (items[i].yPixel < chartArea.top + 8) items[i].yPixel = chartArea.top + 8;
           }
 
           const nearRight = xPixel > chartArea.right - 160;
@@ -491,8 +495,13 @@ const NameChart = forwardRef(function NameChart(
             ctx.arc(xPixel!, origY, 3, 0, Math.PI * 2);
             ctx.fillStyle = color;
             ctx.fill();
-            // Value label in series color, at collision-resolved y
+            // Background rect so label stays readable even when overlapping a line
             ctx.textAlign = nearRight ? 'right' : 'left';
+            const tw = ctx.measureText(text).width;
+            const bgX = nearRight ? lx - tw - 3 : lx - 3;
+            ctx.fillStyle = isDark ? 'rgba(26,27,30,0.82)' : 'rgba(255,255,255,0.88)';
+            ctx.fillRect(bgX, yPixel - 9, tw + 6, 14);
+            // Value label in series color
             ctx.fillStyle = color;
             ctx.fillText(text, lx, yPixel + 4);
           });
