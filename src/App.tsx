@@ -26,7 +26,6 @@ function App() {
   const [yearStart, setYearStart] = useState('1880');
   const [yearEnd, setYearEnd] = useState('2025');
   const [normalize, setNormalize] = useState(false);
-  const [showAnnotations, setShowAnnotations] = useState(false);
   const [showYoY, setShowYoY] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showDecades, setShowDecades] = useState(false);
@@ -330,14 +329,6 @@ function App() {
             borderLeft: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
           }}>
             <button
-              style={toggleChip(showAnnotations)}
-              onClick={() => setShowAnnotations(v => !v)}
-              title="Overlay historical events on the chart (WWI, Great Depression, WWII, Baby Boom, 9/11, COVID-19, etc.)"
-            >
-              {showAnnotations && <span aria-hidden>✓</span>}
-              event markers
-            </button>
-            <button
               style={toggleChip(normalize)}
               onClick={() => setNormalize(v => !v)}
               title="Normalize the y-axis to births per 100,000 people — removes population-size bias so you can compare across eras"
@@ -426,7 +417,6 @@ function App() {
                   yearRange={yearRange}
                   normalize={normalize}
                   birthTotals={birthTotals}
-                  showAnnotations={showAnnotations}
                 />
               </div>
             </div>
