@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useMemo, useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import type { CSSProperties } from 'react';
 import {
   Chart as ChartJS,
@@ -521,7 +521,7 @@ const NameChart = forwardRef(function NameChart(
             borderWidth: 1,
           },
         },
-        limits: { x: { min: 1880, max: 2025 } },
+        limits: { x: { min: 1880, max: 2022 } },
       },
     },
   };
