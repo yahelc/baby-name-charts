@@ -31,17 +31,6 @@ ChartJS.register(
 
 type DataPoint = TimeSeriesPoint;
 
-const EVENTS = [
-  { year: 1918, label: 'WWI ends' },
-  { year: 1929, label: 'Depression' },
-  { year: 1941, label: 'WWII' },
-  { year: 1945, label: 'WWII ends' },
-  { year: 1946, label: 'Baby Boom' },
-  { year: 1964, label: 'Boom ends' },
-  { year: 2001, label: '9/11' },
-  { year: 2020, label: 'COVID-19' },
-];
-
 // Draws series labels at the rightmost visible point of each line.
 // Skips entirely when layout.padding.right < 40 (e.g. on narrow screens).
 // Resolves vertical collisions by nudging labels down.
@@ -127,11 +116,10 @@ interface NameChartProps {
   yearRange: [number, number];
   normalize?: boolean;
   birthTotals?: Record<string, number>;
-  showAnnotations?: boolean;
 }
 
 const NameChart = forwardRef(function NameChart(
-  { data, selectedNames, yearRange, normalize = false, birthTotals = {}, showAnnotations = false }: NameChartProps,
+  { data, selectedNames, yearRange, normalize = false, birthTotals = {} }: NameChartProps,
   ref
 ) {
   const chartRef = useRef<ChartJS<'line'>>(null);
@@ -304,44 +292,6 @@ const NameChart = forwardRef(function NameChart(
       },
     };
 
-    const histAnnotationsPlugin: Plugin<'line'> = {
-      id: 'histAnnotations',
-      beforeDraw(chart) {
-        if (!showAnnotations) return;
-        const { ctx, chartArea, scales } = chart;
-        if (!chartArea) return;
-
-        const lineColor = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)';
-        const textColor = isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.30)';
-
-        ctx.save();
-        EVENTS.forEach(({ year, label }) => {
-          if (year < scales.x.min || year > scales.x.max) return;
-          const px = scales.x.getPixelForValue(year);
-          if (px < chartArea.left || px > chartArea.right) return;
-
-          ctx.strokeStyle = lineColor;
-          ctx.lineWidth = 1;
-          ctx.setLineDash([4, 4]);
-          ctx.beginPath();
-          ctx.moveTo(px, chartArea.top);
-          ctx.lineTo(px, chartArea.bottom);
-          ctx.stroke();
-          ctx.setLineDash([]);
-
-          ctx.save();
-          ctx.translate(px - 4, chartArea.top + 4);
-          ctx.rotate(-Math.PI / 2);
-          ctx.fillStyle = textColor;
-          ctx.font = '10px Inter, system-ui, sans-serif';
-          ctx.textAlign = 'right';
-          ctx.fillText(label, 0, 0);
-          ctx.restore();
-        });
-        ctx.restore();
-      },
-    };
-
     const cursorPlugin: Plugin<'line'> = {
       id: 'cursor',
       afterDraw(chart) {
@@ -453,8 +403,8 @@ const NameChart = forwardRef(function NameChart(
       },
     };
 
-    return [directLabelPlugin, rangeFramePlugin, peakLabelPlugin, histAnnotationsPlugin, cursorPlugin];
-  }, [isDark, showAnnotations]);
+    return [directLabelPlugin, rangeFramePlugin, peakLabelPlugin, cursorPlugin];
+  }, [isDark]);
 
   const options: ChartOptions<'line'> = {
     responsive: true,
