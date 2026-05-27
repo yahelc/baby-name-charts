@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useMemo, useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import type { CSSProperties } from 'react';
 import {
   Chart as ChartJS,
