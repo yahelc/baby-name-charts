@@ -105,6 +105,27 @@ function App() {
     }
   }, []);
 
+  // After data loads, recompute matches for any regex selections that are missing them
+  // (e.g. when restoring from a manually crafted or legacy URL hash)
+  useEffect(() => {
+    if (!data) return;
+    setSelectedNames(prev => {
+      if (!prev.some(s => s.isRegex && (!s.matches || s.matches.length === 0))) return prev;
+      return prev.map(sel => {
+        if (sel.isRegex && (!sel.matches || sel.matches.length === 0)) {
+          const pattern = sel.name.endsWith('/') ? sel.name.slice(1, -1) : sel.name.slice(1);
+          try {
+            const regex = new RegExp(pattern, 'i');
+            return { ...sel, matches: Object.keys(data).filter(name => regex.test(name)) };
+          } catch {
+            return sel;
+          }
+        }
+        return sel;
+      });
+    });
+  }, [data]);
+
   // Load data chunks
   useEffect(() => {
     async function loadData() {
