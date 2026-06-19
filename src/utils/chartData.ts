@@ -1,6 +1,6 @@
 import type { NameData, NameSelection } from '../types';
 
-const PALETTE = [
+export const PALETTE = [
   'hsl(211, 60%, 48%)',
   'hsl(27, 65%, 48%)',
   'hsl(150, 50%, 38%)',

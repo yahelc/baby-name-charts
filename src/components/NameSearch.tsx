@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { TextInput, Paper, Box, useMantineColorScheme } from '@mantine/core';
 import type { NameData, NameSelection } from '../types';
+import { PALETTE } from '../utils/chartData';
 import { useDebouncedValue } from '@mantine/hooks';
 
 interface NameSearchProps {
@@ -205,6 +206,14 @@ export default function NameSearch({ data, selectedNames, onSelectionChange, onR
               color: colorScheme === 'dark' ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.65)',
             }}
           >
+            <span style={{
+              display: 'inline-block',
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: PALETTE[index % PALETTE.length],
+              flexShrink: 0,
+            }} />
             <span style={{ whiteSpace: 'nowrap' }}>
               {selection.isRegex ? selection.name : `${selection.name} (${selection.gender})`}
             </span>
