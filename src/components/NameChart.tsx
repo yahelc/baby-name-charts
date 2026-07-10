@@ -286,7 +286,9 @@ const NameChart = forwardRef(function NameChart(
           ctx.font = '10px Inter, system-ui, sans-serif';
           ctx.fillStyle = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)';
           ctx.textAlign = 'center';
-          ctx.fillText(`${ptData.x}: ${ptData.label}`, metaPt.x, metaPt.y - 8);
+          const labelAbove = metaPt.y - 8;
+          const labelBelow = metaPt.y + 16;
+          ctx.fillText(`${ptData.x}: ${ptData.label}`, metaPt.x, labelAbove < chartArea.top + 4 ? labelBelow : labelAbove);
           ctx.restore();
         });
       },
