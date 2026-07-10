@@ -24,7 +24,7 @@ const interestingNames: { names: { name: string; gender: 'M' | 'F' }[] }[] = [
     { names: [{ name: 'Dexter', gender: 'M' }] },
     { names: [{ name: 'Shaquille', gender: 'M' }] },
     { names: [{ name: 'Jalen', gender: 'M' }] },
-    { names: [{ name: 'LeBron', gender: 'M' }] },
+    { names: [{ name: 'Lebron', gender: 'M' }] },
     { names: [{ name: 'Tiger', gender: 'M' }] },
     { names: [{ name: 'Serena', gender: 'F' }, { name: 'Venus', gender: 'F' }] },
     { names: [{ name: 'Giannis', gender: 'M' }] },
